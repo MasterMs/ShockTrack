@@ -1,5 +1,5 @@
 //
-//  DatabaseView.swift
+//  CommunityView.swift
 //  ShockTrack
 //
 //  Created by Nicholas Sullivan on 2025-10-30.
@@ -7,12 +7,12 @@
 
 import SwiftUI
 
-struct DatabaseView: View {
+struct CommunityView: View {
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Database")
+                    Text("Community")
                         .font(.largeTitle)
                         .bold()
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -23,5 +23,6 @@ struct DatabaseView: View {
 }
 
 #Preview {
-    DatabaseView()
+    CommunityView()
 }
+
