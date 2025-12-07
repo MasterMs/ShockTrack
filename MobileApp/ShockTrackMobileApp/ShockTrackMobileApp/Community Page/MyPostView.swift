@@ -7,26 +7,26 @@
 
 import SwiftUI
 
-struct CommunityPostView: View {
+struct MyPostView: View {
     var body: some View {
         VStack(spacing: 16) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     // Title
-                    Text("S13 Drift Tune")
+                    Text("RUTU Shock Setup")
                         .font(.largeTitle)
                         .bold()
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     // Image
-                    Image("S13")
+                    Image("SuspImg2")
                         .resizable()
                         .scaledToFit()
                         .cornerRadius(12)
                         .accessibilityLabel("Nissan Silvia S13")
 
                     // Description
-                    Text("The Nissan Silvia S13 is a beloved platform in the drifting community thanks to its balanced chassis, lightweight construction, and responsive handling. This tune focuses on predictable oversteer, improved throttle control, and stable transitions. Upgraded suspension geometry, optimized damping, and a limited-slip differential help maintain grip while allowing smooth, controllable slides. Ideal for technical courses and flowing circuits alike.")
+                    Text("Dialed-in suspension that balances comfort and control for spirited driving. This tune pairs firmer spring rates with progressive damping to keep the chassis planted over mid-corner bumps while maintaining quick weight transfer for rotation. Slightly increased front rebound sharpens turn-in, while a touch more rear compression improves traction on exit. Ideal for weekend canyon runs and track days without sacrificing daily drivability.")
                         .font(.body)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.leading)
@@ -36,7 +36,7 @@ struct CommunityPostView: View {
 
             // Bottom button pinned below the scrollable content
             Button(action: {}) {
-                Text("Download Tune")
+                Text("Edit Post")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -54,6 +54,6 @@ struct CommunityPostView: View {
 
 #Preview {
     NavigationView {
-        CommunityPostView()
+        MyPostView()
     }
 }

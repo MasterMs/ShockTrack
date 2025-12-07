@@ -1,47 +1,112 @@
 import SwiftUI
 
 struct RecordingPlaybackView: View {
+    @State private var telemetry = DummyTelemetryModel()
     @State private var isPlaying: Bool = false
 
     var body: some View {
-        VStack(spacing: 16) {
-            // Title
-            Text("Recording Playback")
-                .font(.title)
-                .bold()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top)
-
-            // Graph placeholder (reuse the same asset for now)
-            Image("Graph")
-                .resizable()
-                .scaledToFit()
-                .cornerRadius(12)
-                .accessibilityLabel("Playback graph")
-                .padding(.horizontal)
-
-            Spacer()
-
-            // Start/Stop playback button
-            Button(action: { isPlaying.toggle() }) {
-                Text(isPlaying ? "Stop Playback" : "Start Playback")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(isPlaying ? Color.red : Color.accentColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
+        GeometryReader { proxy in
+            let isLandscape = proxy.size.width > proxy.size.height
+            Group {
+                if isLandscape {
+                    PlaybackLandscapeLayout(kph: telemetry.kph, direction: telemetry.direction, isPlaying: $isPlaying)
+                        .toolbar(.hidden, for: .tabBar)
+                } else {
+                    PlaybackPortraitLayout(kph: telemetry.kph, direction: telemetry.direction, isPlaying: $isPlaying)
+                        .toolbar(.hidden, for: .tabBar)
+                }
             }
-            .padding([.horizontal, .bottom])
+            .background(Color.black)
+            .foregroundColor(.white)
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .onAppear {
+                // Start in paused state; user controls playback
+            }
+            .onChange(of: isPlaying) { _, playing in
+                if playing {
+                    telemetry.start()
+                } else {
+                    telemetry.stop()
+                }
+            }
+            .onDisappear { telemetry.stop() }
+            .toolbar(.hidden, for: .tabBar)
         }
-        .navigationTitle("Playback")
-        .navigationBarTitleDisplayMode(.inline)
-        .background(Color(.systemBackground))
     }
 }
 
 #Preview {
-    NavigationView {
-        RecordingPlaybackView()
+    RecordingPlaybackView()
+}
+
+// MARK: - Landscape
+private struct PlaybackLandscapeLayout: View {
+    let kph: Int
+    let direction: String
+    @Binding var isPlaying: Bool
+
+    var body: some View {
+        VStack {
+            HStack(spacing: 20) {
+                // Left: Graph (reuse GraphView)
+                GraphView(isPlaying: isPlaying)
+                    .frame(width: UIScreen.main.bounds.width * 0.6)
+
+                // Right: Speed + Compass
+                VStack(spacing: 30) {
+                    SpeedDisplay(kph: kph)
+                    CompassDisplay(direction: direction)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .padding()
+
+            Button(action: { isPlaying.toggle() }) {
+                Label(isPlaying ? "Pause Playback" : "Play Playback", systemImage: isPlaying ? "pause.fill" : "play.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(isPlaying ? Color.orange : Color.accentColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
+        }
     }
 }
+
+// MARK: - Portrait
+private struct PlaybackPortraitLayout: View {
+    let kph: Int
+    let direction: String
+    @Binding var isPlaying: Bool
+
+    var body: some View {
+        VStack(spacing: 20) {
+            // Top: Speed + Compass side-by-side
+            HStack(spacing: 30) {
+                SpeedDisplay(kph: kph)
+                Divider()
+                    .frame(height: 48)
+                    .background(Color.white.opacity(0.3))
+                CompassDisplay(direction: direction)
+            }
+            .padding(.horizontal)
+
+            // Bottom: Graph fills remaining space
+            GraphView(isPlaying: isPlaying)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Button(action: { isPlaying.toggle() }) {
+                Label(isPlaying ? "Pause Recording" : "Play Recording", systemImage: isPlaying ? "pause.fill" : "play.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(isPlaying ? Color.orange : Color.accentColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
+        }
+        .padding()
+    }
+}
+

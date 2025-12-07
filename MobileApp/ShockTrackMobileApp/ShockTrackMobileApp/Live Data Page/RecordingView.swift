@@ -21,19 +21,38 @@ final class DummyGraphModel {
     private var currentValue: Double = 50
     private let maxCount: Int = 120 // ~30s at 0.25s interval
 
+    private var i: Int = 0
+    private let amplitude: Double = 80
+    private let frequency: Double = 1.0
+    private let dt: Double = 0.02
+    private var t: Double = 0
+    private var isRunning: Bool = false
+
     func start() {
         stop()
-        // seed a few samples around 0
-        samples = (0..<40).map { GraphSample(index: $0, value: 0) }
-        var i = samples.count
-        let amplitude: Double = 80      // peak compression/decompression
-        let frequency: Double = 1.0     // cycles per second
-        let dt: Double = 0.02           // timer step (s)
-        var t: Double = Double(i) * dt
-
+        if samples.isEmpty {
+            samples = (0..<40).map { GraphSample(index: $0, value: 0) }
+            i = samples.count
+            t = Double(i) * dt
+        }
+        scheduleTimer()
+    }
+    
+    func pause() {
+        timer?.invalidate()
+        timer = nil
+        isRunning = false
+    }
+    
+    func resume() {
+        guard !isRunning else { return }
+        scheduleTimer()
+    }
+    
+    private func scheduleTimer() {
+        isRunning = true
         timer = Timer.scheduledTimer(withTimeInterval: dt, repeats: true) { [weak self] _ in
             guard let self else { return }
-            // base sine wave around 0 with small random jitter to feel organic
             let sine = amplitude * sin(2 * .pi * frequency * t)
             let jitter = Double.random(in: -4...4)
             currentValue = sine + jitter
@@ -42,7 +61,6 @@ final class DummyGraphModel {
             i += 1
             t += dt
 
-            // keep a rolling window
             if samples.count > maxCount {
                 samples.removeFirst(samples.count - maxCount)
             }
@@ -193,6 +211,7 @@ struct PortraitLayout: View {
 
 // MARK: - Components
 struct GraphView: View {
+    var isPlaying: Bool = true
     @State private var model = DummyGraphModel()
 
     var body: some View {
@@ -213,8 +232,18 @@ struct GraphView: View {
             AxisMarks(position: .leading)
         }
         .chartYScale(domain: -100...100)
-        .onAppear { model.start() }
+        .onAppear {
+            if isPlaying {
+                model.start()
+            } else {
+                model.start()
+                model.pause()
+            }
+        }
         .onDisappear { model.stop() }
+        .onChange(of: isPlaying) { _, playing in
+            if playing { model.resume() } else { model.pause() }
+        }
         .background(Color.white.opacity(0.02))
         .cornerRadius(12)
         .overlay(

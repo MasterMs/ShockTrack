@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct HomeView: View {
+    @Binding var selectedTab: Int
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -18,19 +20,25 @@ struct HomeView: View {
                         .bold()
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    // Jump Back In Section
+                    // Live Data Section
                     SectionHeader(title: "Jump Back In")
-                    NavigationLink(destination: LiveDataView().navigationBarBackButtonHidden(true)) {
+                    Button {
+                        selectedTab = 1 // Live Data Tab
+                    } label: {
                         CardView(title: "RX7", subtitle: "Live Data", date: "Thursday, Oct 2nd, 2025", image: "RX7")
                     }
                     
                     // Database Section
                     SectionHeader(title: "Database")
                     VStack(spacing: 12) {
-                        NavigationLink(destination: DatabaseView().navigationBarBackButtonHidden(true)) {
+                        Button {
+                            selectedTab = 3 // Database tab
+                        } label: {
                             CardView(title: "240SX", subtitle: "Database", date: "Sat, Sept 26th, 2025", image: "240SX")
                         }
-                        NavigationLink(destination: DatabaseView().navigationBarBackButtonHidden(true)) {
+                        Button {
+                            selectedTab = 3 // Database tab
+                        } label: {
                             CardView(title: "RX7", subtitle: "Database", date: "Mon, Sept 29th, 2025", image: "RX7")
                         }
                     }
@@ -38,10 +46,14 @@ struct HomeView: View {
                     // Community Posts Section
                     SectionHeader(title: "New Community Posts")
                     VStack(spacing: 20) {
-                        NavigationLink(destination: CommunityView().navigationBarBackButtonHidden(true)) {
+                        Button {
+                            selectedTab = 2 // Community tab
+                        } label: {
                             PostView(title: "Drift 240SX Setup", views: "6473", image: "240SX")
                         }
-                        NavigationLink(destination: CommunityView().navigationBarBackButtonHidden(true)) {
+                        Button {
+                            selectedTab = 2 // Community tab
+                        } label: {
                             PostView(title: "RX7 Drift Clip", views: "2483", image: "RX7")
                         }
                     }
@@ -52,7 +64,7 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Reusable Components
+// MARK: - Components
 
 struct SectionHeader: View {
     let title: String
@@ -147,30 +159,34 @@ struct PostView: View {
     }
 }
 
-import SwiftUI
-
 struct MainTabView: View {
+    @State private var selectedTab: Int = 0
+
     var body: some View {
-        TabView {
-            HomeView()
+        TabView(selection: $selectedTab) {
+            HomeView(selectedTab: $selectedTab)
                 .tabItem {
                     Label("Home", systemImage: "house.fill")
                 }
-            
+                .tag(0)
+
             LiveDataView()
                 .tabItem {
                     Label("Live Data", systemImage: "waveform.path.ecg")
                 }
-            
+                .tag(1)
+
             CommunityView()
                 .tabItem {
                     Label("Community", systemImage: "person.3.fill")
                 }
-            
+                .tag(2)
+
             DatabaseView()
                 .tabItem {
                     Label("Database", systemImage: "archivebox.fill")
                 }
+                .tag(3)
         }
     }
 }

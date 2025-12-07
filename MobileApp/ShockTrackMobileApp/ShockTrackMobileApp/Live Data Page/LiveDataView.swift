@@ -147,7 +147,7 @@ struct ResumeRecordingCard: View {
     var body: some View {
         HStack(spacing: 0) {
             ZStack(alignment: .bottomLeading) {
-                Image("Graph") // Replace with actual image
+                Image("Graph")
                     .resizable()
                     .scaledToFill()
                     .frame(height: 120)
