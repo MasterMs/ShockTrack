@@ -1,12 +1,15 @@
 # ShockTrack  
 **Low-Cost IoT Suspension Monitoring & Analytics System**
 
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/1fe556fd-91a7-4e11-816b-a8691541a7eb" />
+
 
 <img width="1920" height="1040" alt="image" src="https://github.com/user-attachments/assets/04a28471-784e-41e0-b0cf-11bbbeddacf7" />
 
 <img width="1361" height="680" alt="image" src="https://github.com/user-attachments/assets/30998304-9af7-4f2a-a758-f328e75943ae" />
 
 <img width="352" height="771" alt="image" src="https://github.com/user-attachments/assets/ea18f285-784e-40d3-907d-498bb0cfb2c4" />
+
 
 
 
