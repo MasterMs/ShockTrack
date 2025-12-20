@@ -248,6 +248,9 @@
 
         canvas {
             width: 100%;
+            height: clamp(110px, 18vw, 160px);
+
+            /* resizable: grows/shrinks with screen */
             display: block;
             border-radius: 12px;
             background: rgba(0, 0, 0, 0.22);
@@ -298,7 +301,7 @@
                 <div class="charts">
                     <div class="chart">
                         <div class="chartHead"><span>acel_x</span><span class="chip" id="val_ax">—</span></div>
-                        <canvas id="c_ax" height="120"></canvas>
+                        <canvas id="c_ax"></canvas>
                     </div>
                     <div class="chart">
                         <div class="chartHead"><span>acel_y</span><span class="chip" id="val_ay">—</span></div>
@@ -442,12 +445,79 @@
             gz: document.getElementById('val_gz'),
         };
 
+        // ---- CANVAS RESIZE (only when needed) ----
+        const ctxMap = {};
+        const sizeMap = {}; // key -> {cssW, cssH, pxW, pxH, dpr}
+
+        function resizeCanvasToDisplaySize(key) {
+            const c = canvases[key];
+            if (!c) return;
+
+            const dpr = window.devicePixelRatio || 1;
+
+            const rect = c.getBoundingClientRect();
+            const cssW = Math.max(1, Math.floor(rect.width));
+
+            // rect.height can be 0 briefly on mobile; fallback to computed style height or 120
+            let cssH = Math.floor(rect.height);
+            if (cssH < 10) {
+                const hStr = getComputedStyle(c).height; // like "132px"
+                const parsed = Math.floor(parseFloat(hStr));
+                cssH = (parsed && parsed >= 10) ? parsed : 120;
+            }
+
+            const pxW = Math.floor(cssW * dpr);
+            const pxH = Math.floor(cssH * dpr);
+
+            const prev = sizeMap[key];
+            if (prev && prev.pxW === pxW && prev.pxH === pxH && prev.dpr === dpr) return;
+
+            c.width = pxW;
+            c.height = pxH;
+
+            const ctx = c.getContext("2d", { alpha: true, desynchronized: true });
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            ctxMap[key] = ctx;
+            sizeMap[key] = { cssW, cssH, pxW, pxH, dpr };
+        }
+
+
+        function resizeAllCanvases() {
+            for (const k of Object.keys(canvases)) resizeCanvasToDisplaySize(k);
+            requestRedraw(); // after resize, redraw once
+        }
+
+        // ResizeObserver catches mobile viewport/layout changes without a 60fps loop
+        const ro = new ResizeObserver(() => resizeAllCanvases());
+        for (const c of Object.values(canvases)) ro.observe(c);
+
+        window.addEventListener('orientationchange', () => setTimeout(resizeAllCanvases, 250));
+        window.addEventListener('resize', () => resizeAllCanvases());
+
         function parseLine(line) {
             const parts = String(line).split(',').map(s => s.trim());
             if (parts.length !== 6) return null;
             const nums = parts.map(p => Number(p));
             if (nums.some(n => Number.isNaN(n))) return null;
             return nums;
+        }
+
+        // ---- REDRAW ONLY WHEN NEEDED ----
+        let needsRedraw = true;
+        let rafPending = false;
+
+        function requestRedraw() {
+            needsRedraw = true;
+            if (rafPending) return;
+            rafPending = true;
+            requestAnimationFrame(() => {
+                rafPending = false;
+                if (!needsRedraw) return;
+                needsRedraw = false;
+                drawChart('ax'); drawChart('ay'); drawChart('az');
+                drawChart('gx'); drawChart('gy'); drawChart('gz');
+            });
         }
 
         function pushSample(ax, ay, az, gx, gy, gz) {
@@ -467,6 +537,8 @@
             labels.gx.textContent = gx.toFixed(2);
             labels.gy.textContent = gy.toFixed(2);
             labels.gz.textContent = gz.toFixed(2);
+
+            requestRedraw(); // redraw once per incoming sample
         }
 
         function getRange(arr) {
@@ -518,19 +590,16 @@
         }
 
         function drawChart(key) {
+            // Only resize when needed (NOT every frame)
+            resizeCanvasToDisplaySize(key);
+
             const c = canvases[key];
-            if (!c) return;
+            const ctx = ctxMap[key];
+            const s = sizeMap[key];
+            if (!c || !ctx || !s) return;
 
-            const dpr = window.devicePixelRatio || 1;
-            const w = c.clientWidth;
-            const h = Number(c.getAttribute('height')) || 120;
-
-            // crisp canvas
-            c.width = Math.floor(w * dpr);
-            c.height = Math.floor(h * dpr);
-
-            const ctx = c.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            const w = s.cssW;
+            const h = s.cssH;
 
             // clear
             ctx.clearRect(0, 0, w, h);
@@ -582,17 +651,6 @@
             ctx.arc(Math.max(6, w - 6), yLast, 3, 0, Math.PI * 2);
             ctx.fill();
         }
-
-        function renderLoop() {
-            drawChart('ax');
-            drawChart('ay');
-            drawChart('az');
-            drawChart('gx');
-            drawChart('gy');
-            drawChart('gz');
-            requestAnimationFrame(renderLoop);
-        }
-        requestAnimationFrame(renderLoop);
 
         // ---- WebSocket + status ----
         function connectWS() {
@@ -703,6 +761,10 @@
         checkStatus();
         setWaiting(true);
         setInterval(checkStatus, 5000);
+
+        // initial sizing + draw
+        resizeAllCanvases();
+        requestRedraw();
     </script>
 </body>
 
