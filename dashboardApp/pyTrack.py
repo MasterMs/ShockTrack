@@ -2,20 +2,19 @@ import asyncio
 import csv
 import os
 import time
-import serial
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional, List, Set, Dict, Any
 
-from fastapi import FastAPI, WebSocket, BackgroundTasks, Request
+import serial
+from fastapi import FastAPI, WebSocket, BackgroundTasks
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-
-
 from contextlib import asynccontextmanager
 
 
-# ----- CONFIG -----
-
-
+# --------------------
+# CONFIG
+# --------------------
 PORT = "COM3"
 BAUD = 115200
 RETRY_SECONDS = 2
@@ -23,227 +22,319 @@ LOG_DIR = "logs"
 HEADER = ["timestamp", "acel_x", "acel_y",
           "acel_z", "gyro_x", "gyro_y", "gyro_z"]
 
-clients = set()
-ser = None  # global serial object
-ser_lock = asyncio.Lock()
-serial_task_handle = None
-stop_serial = False
+
+# --------------------
+# SERIALIZATION / PARSING
+# --------------------
+@dataclass
+class ParsedLine:
+    timestamp: str
+    raw: str
+    values: Optional[List[float]]  # 6 floats if valid, else None
+
+    @property
+    def is_valid(self) -> bool:
+        return self.values is not None
+
+    def to_csv_row(self) -> List[Any]:
+        if self.is_valid:
+            return [self.timestamp] + self.values  # type: ignore
+        return [self.timestamp, self.raw]
+
+    def to_ws_text(self) -> str:
+        # Keep identical behavior: you were sending raw line over WS
+        return self.raw
 
 
-async def open_serial_with_retry(port: str, baudrate: int, retry_seconds: int = 2) -> serial.Serial:
-    global ser
-    while True:
+class LineParser:
+    """Turns a raw CSV-ish line into floats (or None)."""
+
+    @staticmethod
+    def parse_csv_6floats(line: str) -> Optional[List[float]]:
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) != 6:
+            return None
         try:
-            s = serial.Serial(port, baudrate, timeout=1)
-            print(f"Connected to {port} at {baudrate} baud.")
-            async with ser_lock:
-                ser = s
-            return s
-        except Exception as e:
-            print(
-                f"Waiting for {port}... (retrying in {retry_seconds}s) [{e}]")
-            await asyncio.sleep(retry_seconds)
+            return [float(p) for p in parts]
+        except ValueError:
+            return None
+
+    def parse(self, raw: str) -> ParsedLine:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        values = self.parse_csv_6floats(raw)
+        return ParsedLine(timestamp=ts, raw=raw, values=values)
 
 
-def parse_csv_line(line: str):
-    parts = [p.strip() for p in line.split(",")]
-    if len(parts) != 6:
-        return None
-    try:
-        return [float(p) for p in parts]
-    except ValueError:
-        return None
+# --------------------
+# CSV LOGGING
+# --------------------
+class CsvLogger:
+    def __init__(self, log_dir: str = LOG_DIR, header: Optional[List[str]] = None):
+        self.log_dir = log_dir
+        self.header = header or HEADER
+        self.filepath: Optional[str] = None
+        self._f = None
+        self._writer = None
+
+    def open(self, filepath: Optional[str] = None) -> str:
+        os.makedirs(self.log_dir, exist_ok=True)
+        if filepath is None:
+            filepath = os.path.join(
+                self.log_dir,
+                f"sensor_output_with_timestamps_{time.strftime('%Y%m%d-%H%M%S')}.csv"
+            )
+        self.filepath = filepath
+        self._f = open(filepath, mode="a", newline="")
+        self._writer = csv.writer(self._f)
+
+        if self._f.tell() == 0:
+            self._writer.writerow(self.header)
+            self._f.flush()
+
+        print(f"Logging CSV rows to {filepath} (Ctrl+C to stop)...")
+        return filepath
+
+    def write(self, row: List[Any]) -> None:
+        if not self._writer or not self._f:
+            raise RuntimeError("CsvLogger is not open()")
+        self._writer.writerow(row)
+        self._f.flush()
+
+    def close(self) -> None:
+        if self._f:
+            self._f.close()
+            print(f"Closed log file {self.filepath}")
+        self._f = None
+        self._writer = None
+        self.filepath = None
 
 
-async def serial_task(port=PORT, baud=BAUD, retry_seconds=RETRY_SECONDS, csv_file=None):
-    global ser, stop_serial
+# --------------------
+# WEBSOCKET CLIENT HUB
+# --------------------
+class WebSocketHub:
+    def __init__(self):
+        self._clients: Set[WebSocket] = set()
+        self._lock = asyncio.Lock()
 
-    os.makedirs(LOG_DIR, exist_ok=True)
-    if csv_file is None:
-        csv_file = os.path.join(
-            LOG_DIR, f"sensor_output_with_timestamps_{time.strftime('%Y%m%d-%H%M%S')}.csv")
+    async def add(self, ws: WebSocket) -> None:
+        async with self._lock:
+            self._clients.add(ws)
 
-    # ensure serial is opened (this will wait until device available)
-    try:
-        await open_serial_with_retry(port, baud, retry_seconds)
-    except asyncio.CancelledError:
-        return
+    async def remove(self, ws: WebSocket) -> None:
+        async with self._lock:
+            self._clients.discard(ws)
 
-    f = None
-    writer = None
+    async def broadcast_text(self, text: str) -> None:
+        async with self._lock:
+            clients = list(self._clients)
 
-    try:
-        f = open(csv_file, mode="a", newline="")
-        writer = csv.writer(f)
-        if f.tell() == 0:
-            writer.writerow(HEADER)
-            f.flush()
+        if not clients:
+            return
 
-        print(f"Logging CSV rows to {csv_file} (Ctrl+C to stop)...")
-
-        while True:
-            if stop_serial:
-                break
-
-            async with ser_lock:
-                local_ser = ser
-
-            if local_ser is None or not getattr(local_ser, "is_open", False):
-                # try to reopen in background and wait a bit
-                await asyncio.sleep(0.5)
-                continue
-
+        for ws in clients:
             try:
-                raw = local_ser.readline().decode("utf-8", errors="ignore").strip()
+                await ws.send_text(text)
+            except Exception:
+                await self.remove(ws)
+
+    async def count(self) -> int:
+        async with self._lock:
+            return len(self._clients)
+
+
+# --------------------
+# SERIAL MANAGER (read loop + reconnect)
+# --------------------
+class SerialManager:
+    def __init__(
+        self,
+        port: str = PORT,
+        baud: int = BAUD,
+        retry_seconds: int = RETRY_SECONDS,
+        parser: Optional[LineParser] = None,
+        logger: Optional[CsvLogger] = None,
+        ws_hub: Optional[WebSocketHub] = None,
+    ):
+        self.port = port
+        self.baud = baud
+        self.retry_seconds = retry_seconds
+
+        self.parser = parser or LineParser()
+        self.logger = logger or CsvLogger()
+        self.ws_hub = ws_hub or WebSocketHub()
+
+        self._ser: Optional[serial.Serial] = None
+        self._ser_lock = asyncio.Lock()
+
+        self._task: Optional[asyncio.Task] = None
+        self._stop = False
+
+    async def _open_serial_with_retry(self) -> serial.Serial:
+        while True:
+            try:
+                s = serial.Serial(self.port, self.baud, timeout=1)
+                print(f"Connected to {self.port} at {self.baud} baud.")
+                async with self._ser_lock:
+                    self._ser = s
+                return s
             except Exception as e:
-                print("Serial read error:", e)
-                raw = ""
+                print(
+                    f"Waiting for {self.port}... (retrying in {self.retry_seconds}s) [{e}]")
+                await asyncio.sleep(self.retry_seconds)
 
-            if not raw:
-                await asyncio.sleep(0)
-                continue
+    async def is_connected(self) -> bool:
+        async with self._ser_lock:
+            return self._ser is not None and getattr(self._ser, "is_open", False)
 
-            row = parse_csv_line(raw)
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-
-            if row is not None:
-                writer.writerow([timestamp] + row)
-                f.flush()
-                print([timestamp] + row)
-            else:
-                writer.writerow([timestamp, raw])
-                f.flush()
-                print([timestamp, raw])
-
-            if clients:
-                for ws in list(clients):
-                    try:
-                        await ws.send_text(raw)
-                    except Exception:
-                        clients.discard(ws)
-
-            await asyncio.sleep(0)
-
-    except asyncio.CancelledError:
-        raise
-    finally:
-        if f:
-            f.close()
-            print(f"Closed log file {csv_file}")
-        async with ser_lock:
-            if ser and getattr(ser, "is_open", False):
+    async def force_close(self) -> None:
+        async with self._ser_lock:
+            if self._ser is not None:
                 try:
-                    ser.close()
+                    self._ser.close()
                 except Exception:
                     pass
-            ser = None
-        print("Serial port closed.")
+            self._ser = None
 
+    async def start(self) -> None:
+        if self._task is None or self._task.done():
+            self._stop = False
+            self._task = asyncio.create_task(self._run())
 
-async def ensure_serial_running():
-    global serial_task_handle
-    if serial_task_handle is None or serial_task_handle.done():
-        serial_task_handle = asyncio.create_task(serial_task())
-
-
-# --------------------
-# LIFESPAN HANDLER
-# --------------------
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global serial_task_handle, stop_serial
-    stop_serial = False
-    serial_task_handle = asyncio.create_task(serial_task())
-    try:
-        yield
-    finally:
-        stop_serial = True
-        if serial_task_handle:
-            serial_task_handle.cancel()
+    async def stop(self) -> None:
+        self._stop = True
+        if self._task:
+            self._task.cancel()
             try:
-                await serial_task_handle
+                await self._task
             except asyncio.CancelledError:
                 pass
+        await self.force_close()
+        self.logger.close()
 
+    async def reconnect(self) -> None:
+        # Close stale handle so Windows releases COM port
+        await self.force_close()
+        # Ensure task is running (it will reopen)
+        await self.start()
 
-app = FastAPI(lifespan=lifespan)
+    async def _run(self) -> None:
+        # Open CSV once per run
+        self.logger.open()
+
+        # Ensure serial is opened (wait until device available)
+        try:
+            await self._open_serial_with_retry()
+        except asyncio.CancelledError:
+            return
+
+        try:
+            while not self._stop:
+                async with self._ser_lock:
+                    local_ser = self._ser
+
+                if local_ser is None or not getattr(local_ser, "is_open", False):
+                    await asyncio.sleep(0.5)
+                    continue
+
+                try:
+                    raw = local_ser.readline().decode("utf-8", errors="ignore").strip()
+                except Exception as e:
+                    print("Serial read error:", e)
+                    raw = ""
+
+                if not raw:
+                    await asyncio.sleep(0)
+                    continue
+
+                parsed = self.parser.parse(raw)
+
+                # Log to CSV (valid lines become 7 columns; invalid are [timestamp, raw])
+                self.logger.write(parsed.to_csv_row())
+
+                # Console debug (same spirit as before)
+                print(parsed.to_csv_row())
+
+                # Broadcast to websocket clients (raw line)
+                await self.ws_hub.broadcast_text(parsed.to_ws_text())
+
+                await asyncio.sleep(0)
+
+        except asyncio.CancelledError:
+            raise
+        finally:
+            await self.force_close()
+            self.logger.close()
+            print("Serial port closed.")
 
 
 # --------------------
-# WEBSOCKET ENDPOINT
+# FASTAPI WRAPPER
 # --------------------
-@app.websocket("/ws")
-async def ws_endpoint(ws: WebSocket):
-    await ws.accept()
-    clients.add(ws)
-    try:
-        while True:
-            await ws.receive_text()
-    except Exception:
-        clients.discard(ws)
+class ShockTrackAPI:
+    def __init__(self, serial_mgr: SerialManager):
+        self.serial_mgr = serial_mgr
+        self.app = FastAPI(lifespan=self._lifespan)
+        self._mount_routes()
 
+    @asynccontextmanager
+    async def _lifespan(self, app: FastAPI):
+        await self.serial_mgr.start()
+        try:
+            yield
+        finally:
+            await self.serial_mgr.stop()
 
-# --------------------
-# STATUS + RECONNECT ENDPOINTS
-# --------------------
-@app.get("/status")
-async def status():
-    async with ser_lock:
-        connected = ser is not None and getattr(ser, "is_open", False)
-    return JSONResponse({"connected": connected})
-
-
-@app.post("/reconnect")
-async def reconnect(background_tasks: BackgroundTasks):
-    """
-    Trigger a reconnect attempt. Returns current status immediately (tries
-    for a short window) and ensures a background task will try to open the
-    serial port if closed.
-    """
-    global ser, serial_task_handle
-
-    # If already connected, short-circuit
-    async with ser_lock:
-        if ser is not None and getattr(ser, "is_open", False):
-            return JSONResponse({"connected": True, "message": "Already connected"})
-
-        # If there's a stale handle, close it so Windows releases the COM port
-        if ser is not None:
+    def _mount_routes(self) -> None:
+        @self.app.websocket("/ws")
+        async def ws_endpoint(ws: WebSocket):
+            await ws.accept()
+            await self.serial_mgr.ws_hub.add(ws)
             try:
-                ser.close()
+                while True:
+                    # Keep it simple: clients can send pings, we ignore content
+                    await ws.receive_text()
             except Exception:
-                pass
-            ser = None
+                await self.serial_mgr.ws_hub.remove(ws)
 
-    # Schedule a background ensure/open attempt (create_task around the coroutine)
-    # background_tasks.add_task will call the callable we provide with the args below.
-    # Here we call asyncio.create_task(ensure_serial_running()) so it runs in the loop.
-    background_tasks.add_task(asyncio.create_task, ensure_serial_running())
+        @self.app.get("/status")
+        async def status():
+            return JSONResponse({"connected": await self.serial_mgr.is_connected()})
 
-    # Poll the connection status for a short window so the caller gets immediate feedback.
-    # If the background opener is quick, we can return connected: true right away.
-    timeout_s = 3.0
-    interval = 0.25
-    checks = int(timeout_s / interval)
+        @self.app.post("/reconnect")
+        async def reconnect(background_tasks: BackgroundTasks):
+            """
+            Kick off a reconnect attempt and return quick feedback.
+            """
+            if await self.serial_mgr.is_connected():
+                return JSONResponse({"connected": True, "message": "Already connected"})
 
-    for _ in range(checks):
-        async with ser_lock:
-            connected = ser is not None and getattr(ser, "is_open", False)
-        if connected:
-            return JSONResponse({"connected": True, "message": "Reconnected"})
-        await asyncio.sleep(interval)
+            # Start reconnect in background
+            background_tasks.add_task(self.serial_mgr.reconnect)
 
-    # If we get here, reconnect didn't complete within the short window.
-    return JSONResponse({"connected": False, "message": "Reconnect attempt started; not connected yet"})
+            # Poll briefly for immediate feedback
+            timeout_s = 3.0
+            interval = 0.25
+            checks = int(timeout_s / interval)
+
+            for _ in range(checks):
+                if await self.serial_mgr.is_connected():
+                    return JSONResponse({"connected": True, "message": "Reconnected"})
+                await asyncio.sleep(interval)
+
+            return JSONResponse({"connected": False, "message": "Reconnect attempt started; not connected yet"})
+
+        @self.app.get("/", response_class=HTMLResponse)
+        async def index():
+            return FileResponse("static/index.html")
 
 
 # --------------------
-# BLANK PAGE SHOWING THE LIVE MPU DATA + RECONNECT BUTTON
+# APP ENTRYPOINT
 # --------------------
-@app.get("/", response_class=HTMLResponse)
-async def index():
-    return FileResponse("static/index.html")
-
+serial_mgr = SerialManager()
+api = ShockTrackAPI(serial_mgr)
+app = api.app
 
 if __name__ == "__main__":
     import uvicorn
