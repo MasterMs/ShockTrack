@@ -195,6 +195,3 @@ This repository supports the ShockTrack Capstone Project and reflects both:
 ## 🔒 Disclaimer
 
 ShockTrack is a **research and prototyping platform**. It is not intended to replace professional motorsport telemetry systems or OEM safety systems.
-
-
-
