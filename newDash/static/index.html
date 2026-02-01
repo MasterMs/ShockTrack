@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/static/favicon.png" type="image/svg+xml" />
+    <title>ShockTrack Live</title>
+    <style>
+        :root {
+            --bg: #0b1020;
+            --panel: rgba(255, 255, 255, 0.06);
+            --text: rgba(255, 255, 255, 0.92);
+            --muted: rgba(255, 255, 255, 0.70);
+            --border: rgba(255, 255, 255, 0.12);
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            --radius: 18px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+            background:
+                radial-gradient(1100px 600px at 15% 10%, rgba(98, 153, 255, 0.35), transparent 55%),
+                radial-gradient(900px 500px at 85% 20%, rgba(194, 109, 255, 0.25), transparent 55%),
+                radial-gradient(900px 600px at 45% 95%, rgba(66, 245, 195, 0.16), transparent 60%),
+                var(--bg);
+            display: grid;
+            place-items: center;
+            padding: 22px;
+        }
+
+        .wrap {
+            width: min(1100px, 100%);
+            display: grid;
+            gap: 14px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 200px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.06);
+        }
+
+        .dot.ok {
+            background: #33d17a;
+            box-shadow: 0 0 0 4px rgba(51, 209, 122, 0.15);
+        }
+
+        .dot.bad {
+            background: #ff6b6b;
+            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.15);
+        }
+
+        .dot.warn {
+            background: #ffd166;
+            box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.15);
+        }
+
+        .title {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+        }
+
+        .title strong {
+            font-size: 14px;
+            letter-spacing: 0.2px;
+        }
+
+        .title span {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        button {
+            appearance: none;
+            border: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06));
+            color: var(--text);
+            padding: 10px 12px;
+            border-radius: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.06s ease, border-color 0.2s ease, opacity 0.2s ease;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+        }
+
+        button:hover {
+            border-color: rgba(255, 255, 255, 0.24);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .pill {
+            padding: 8px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--muted);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+        }
+
+        @media (min-width: 980px) {
+            .grid {
+                grid-template-columns: 1.9fr 1fr;
+                align-items: start;
+            }
+        }
+
+        .card {
+            padding: 16px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+
+        .labelRow {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .kv {
+            display: grid;
+            gap: 6px;
+            padding: 12px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            background: rgba(0, 0, 0, 0.18);
+        }
+
+        .kv .k {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .kv .v {
+            font-size: 13px;
+            color: var(--text);
+            word-break: break-word;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        .mini {
+            display: grid;
+            gap: 10px;
+        }
+
+        /* Charts */
+        .charts {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: 1fr;
+        }
+
+        @media (min-width: 980px) {
+            .charts {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .chart {
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            background: rgba(0, 0, 0, 0.18);
+            padding: 12px;
+        }
+
+        .chartHead {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .chip {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            color: var(--text);
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            background: rgba(0, 0, 0, 0.22);
+        }
+
+        canvas {
+            width: 100%;
+            height: clamp(110px, 18vw, 160px);
+
+            /* resizable: grows/shrinks with screen */
+            display: block;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.22);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .footer {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 12px;
+            padding: 6px 0 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="topbar">
+            <div class="brand">
+                <div id="dot" class="dot warn"></div>
+                <div class="title">
+                    <strong>ShockTrack Live</strong>
+                    <span id="sub">WebSocket + Serial status</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <span id="status" class="pill">status: booting…</span>
+                <button id="reconnect">Check / Reconnect</button>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="labelRow">
+                    <div>
+                        <div style="font-weight:700;">Live MPU</div>
+                        <div class="hint">Raw line + 6 live charts (rolling window)</div>
+                    </div>
+                    <div class="hint" id="lastTs">last: —</div>
+                </div>
+
+                <div class="kv" style="margin-bottom:12px;">
+                    <div class="k">Raw WebSocket line</div>
+                    <div class="v" id="v">(waiting for data)</div>
+                </div>
+
+                <div class="charts">
+                    <div class="chart">
+                        <div class="chartHead"><span>acel_x</span><span class="chip" id="val_ax">—</span></div>
+                        <canvas id="c_ax"></canvas>
+                    </div>
+                    <div class="chart">
+                        <div class="chartHead"><span>acel_y</span><span class="chip" id="val_ay">—</span></div>
+                        <canvas id="c_ay" height="120"></canvas>
+                    </div>
+                    <div class="chart">
+                        <div class="chartHead"><span>acel_z</span><span class="chip" id="val_az">—</span></div>
+                        <canvas id="c_az" height="120"></canvas>
+                    </div>
+                    <div class="chart">
+                        <div class="chartHead"><span>gyro_x</span><span class="chip" id="val_gx">—</span></div>
+                        <canvas id="c_gx" height="120"></canvas>
+                    </div>
+                    <div class="chart">
+                        <div class="chartHead"><span>gyro_y</span><span class="chip" id="val_gy">—</span></div>
+                        <canvas id="c_gy" height="120"></canvas>
+                    </div>
+                    <div class="chart">
+                        <div class="chartHead"><span>gyro_z</span><span class="chip" id="val_gz">—</span></div>
+                        <canvas id="c_gz" height="120"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mini">
+                <div class="kv">
+                    <div class="k">HTTP endpoint</div>
+                    <div class="v" id="httpHost">—</div>
+                </div>
+                <div class="kv">
+                    <div class="k">WebSocket endpoint</div>
+                    <div class="v" id="wsHost">—</div>
+                </div>
+                <div class="kv">
+                    <div class="k">Device</div>
+                    <div class="v" id="dev">—</div>
+                </div>
+                <div class="kv">
+                    <div class="k">WebSocket</div>
+                    <div class="v" id="wsState">—</div>
+                </div>
+
+                <div class="kv">
+                    <div class="k">Notes</div>
+                    <div class="v" style="font-family:inherit;">
+                        Use a real IP/hostname (not <code>0.0.0.0</code>). If you serve this over HTTPS, switch the WS
+                        URL to <code>wss://</code>.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">ShockTrack — live sensor telemetry</div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const reconnectBtn = document.getElementById('reconnect');
+        const valueEl = document.getElementById('v');
+        const dotEl = document.getElementById('dot');
+        const lastTsEl = document.getElementById('lastTs');
+
+        const httpHostEl = document.getElementById('httpHost');
+        const wsHostEl = document.getElementById('wsHost');
+        const devEl = document.getElementById('dev');
+        const wsStateEl = document.getElementById('wsState');
+
+        httpHostEl.textContent = location.origin;
+
+        // Use wss:// when page is https://, otherwise ws://
+        const WS_SCHEME = (location.protocol === "https:") ? "wss://" : "ws://";
+        const WS_URL = WS_SCHEME + location.host + "/ws";
+        wsHostEl.textContent = WS_URL;
+
+        let ws = null;
+
+        // ---- WAITING / DATA WATCHDOG ----
+        const DATA_TIMEOUT_MS = 1500; // tweak based on sample rate
+        let lastDataAt = 0;
+        let isWaiting = true;
+
+        function setDot(state) {
+            dotEl.classList.remove('ok', 'bad', 'warn');
+            dotEl.classList.add(state);
+        }
+
+        function nowTime() {
+            const d = new Date();
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function wsStateText() {
+            if (!ws) return "closed";
+            switch (ws.readyState) {
+                case WebSocket.CONNECTING: return "connecting";
+                case WebSocket.OPEN: return "open";
+                case WebSocket.CLOSING: return "closing";
+                case WebSocket.CLOSED: return "closed";
+                default: return "unknown";
+            }
+        }
+
+        function setWaiting(waiting) {
+            isWaiting = waiting;
+
+            if (waiting) {
+                valueEl.textContent = "(waiting for data)";
+                lastTsEl.textContent = "last: —";
+                statusEl.textContent = "status: waiting for data";
+                setDot("warn");
+            }
+        }
+
+        // ---- LIVE CHARTS ----
+        const N = 240; // rolling window points
+        const series = {
+            ax: new Float32Array(N),
+            ay: new Float32Array(N),
+            az: new Float32Array(N),
+            gx: new Float32Array(N),
+            gy: new Float32Array(N),
+            gz: new Float32Array(N),
+        };
+        let idx = 0;
+        let filled = 0;
+
+        const canvases = {
+            ax: document.getElementById('c_ax'),
+            ay: document.getElementById('c_ay'),
+            az: document.getElementById('c_az'),
+            gx: document.getElementById('c_gx'),
+            gy: document.getElementById('c_gy'),
+            gz: document.getElementById('c_gz'),
+        };
+        const labels = {
+            ax: document.getElementById('val_ax'),
+            ay: document.getElementById('val_ay'),
+            az: document.getElementById('val_az'),
+            gx: document.getElementById('val_gx'),
+            gy: document.getElementById('val_gy'),
+            gz: document.getElementById('val_gz'),
+        };
+
+        // ---- CANVAS RESIZE (only when needed) ----
+        const ctxMap = {};
+        const sizeMap = {}; // key -> {cssW, cssH, pxW, pxH, dpr}
+
+        function resizeCanvasToDisplaySize(key) {
+            const c = canvases[key];
+            if (!c) return;
+
+            const dpr = window.devicePixelRatio || 1;
+
+            const rect = c.getBoundingClientRect();
+            const cssW = Math.max(1, Math.floor(rect.width));
+
+            // rect.height can be 0 briefly on mobile; fallback to computed style height or 120
+            let cssH = Math.floor(rect.height);
+            if (cssH < 10) {
+                const hStr = getComputedStyle(c).height; // like "132px"
+                const parsed = Math.floor(parseFloat(hStr));
+                cssH = (parsed && parsed >= 10) ? parsed : 120;
+            }
+
+            const pxW = Math.floor(cssW * dpr);
+            const pxH = Math.floor(cssH * dpr);
+
+            const prev = sizeMap[key];
+            if (prev && prev.pxW === pxW && prev.pxH === pxH && prev.dpr === dpr) return;
+
+            c.width = pxW;
+            c.height = pxH;
+
+            const ctx = c.getContext("2d", { alpha: true, desynchronized: true });
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            ctxMap[key] = ctx;
+            sizeMap[key] = { cssW, cssH, pxW, pxH, dpr };
+        }
+
+
+        function resizeAllCanvases() {
+            for (const k of Object.keys(canvases)) resizeCanvasToDisplaySize(k);
+            requestRedraw(); // after resize, redraw once
+        }
+
+        // ResizeObserver catches mobile viewport/layout changes without a 60fps loop
+        const ro = new ResizeObserver(() => resizeAllCanvases());
+        for (const c of Object.values(canvases)) ro.observe(c);
+
+        window.addEventListener('orientationchange', () => setTimeout(resizeAllCanvases, 250));
+        window.addEventListener('resize', () => resizeAllCanvases());
+
+        function parseLine(line) {
+            const parts = String(line).split(',').map(s => s.trim());
+            if (parts.length !== 6) return null;
+            const nums = parts.map(p => Number(p));
+            if (nums.some(n => Number.isNaN(n))) return null;
+            return nums;
+        }
+
+        // ---- REDRAW ONLY WHEN NEEDED ----
+        let needsRedraw = true;
+        let rafPending = false;
+
+        function requestRedraw() {
+            needsRedraw = true;
+            if (rafPending) return;
+            rafPending = true;
+            requestAnimationFrame(() => {
+                rafPending = false;
+                if (!needsRedraw) return;
+                needsRedraw = false;
+                drawChart('ax'); drawChart('ay'); drawChart('az');
+                drawChart('gx'); drawChart('gy'); drawChart('gz');
+            });
+        }
+
+        function pushSample(ax, ay, az, gx, gy, gz) {
+            series.ax[idx] = ax;
+            series.ay[idx] = ay;
+            series.az[idx] = az;
+            series.gx[idx] = gx;
+            series.gy[idx] = gy;
+            series.gz[idx] = gz;
+
+            idx = (idx + 1) % N;
+            filled = Math.min(N, filled + 1);
+
+            labels.ax.textContent = ax.toFixed(2);
+            labels.ay.textContent = ay.toFixed(2);
+            labels.az.textContent = az.toFixed(2);
+            labels.gx.textContent = gx.toFixed(2);
+            labels.gy.textContent = gy.toFixed(2);
+            labels.gz.textContent = gz.toFixed(2);
+
+            requestRedraw(); // redraw once per incoming sample
+        }
+
+        function getRange(arr) {
+            if (filled === 0) return { min: -1, max: 1 };
+            let mn = Infinity, mx = -Infinity;
+            for (let i = 0; i < filled; i++) {
+                const j = (idx - filled + i + N) % N;
+                const v = arr[j];
+                if (v < mn) mn = v;
+                if (v > mx) mx = v;
+            }
+            if (mn === mx) { mn -= 1; mx += 1; }
+            return { min: mn, max: mx };
+        }
+
+        // ---- Y-AXIS SCALE ----
+        function drawYAxis(ctx, w, h, r) {
+            ctx.save();
+
+            ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+            ctx.fillStyle = "rgba(255,255,255,0.55)";
+            ctx.textBaseline = "middle";
+
+            const ticks = [
+                { v: r.max, label: r.max.toFixed(2) },
+                { v: (r.min + r.max) / 2, label: ((r.min + r.max) / 2).toFixed(2) },
+                { v: r.min, label: r.min.toFixed(2) },
+            ];
+
+            // include 0 tick if in range
+            if (r.min < 0 && r.max > 0) {
+                ticks.splice(1, 0, { v: 0, label: "0.00" });
+            }
+
+            for (const t of ticks) {
+                const y = h - ((t.v - r.min) / (r.max - r.min)) * h;
+
+                // tick mark
+                ctx.strokeStyle = "rgba(255,255,255,0.14)";
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(6, y);
+                ctx.stroke();
+
+                ctx.fillText(t.label, 10, y);
+            }
+
+            ctx.restore();
+        }
+
+        function drawChart(key) {
+            // Only resize when needed (NOT every frame)
+            resizeCanvasToDisplaySize(key);
+
+            const c = canvases[key];
+            const ctx = ctxMap[key];
+            const s = sizeMap[key];
+            if (!c || !ctx || !s) return;
+
+            const w = s.cssW;
+            const h = s.cssH;
+
+            // clear
+            ctx.clearRect(0, 0, w, h);
+
+            // grid
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = "rgba(255,255,255,0.08)";
+            for (let i = 1; i < 4; i++) {
+                const y = (h / 4) * i;
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+            }
+            for (let i = 1; i < 6; i++) {
+                const x = (w / 6) * i;
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+            }
+
+            const r = getRange(series[key]);
+
+            // y-axis scale (min/mid/max + optional 0)
+            drawYAxis(ctx, w, h, r);
+
+            // centerline (0)
+            ctx.strokeStyle = "rgba(255,255,255,0.16)";
+            const y0 = h - ((0 - r.min) / (r.max - r.min)) * h;
+            ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(w, y0); ctx.stroke();
+
+            if (filled < 2) return;
+
+            // data line
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "rgba(255,255,255,0.85)";
+            ctx.beginPath();
+            for (let i = 0; i < filled; i++) {
+                const j = (idx - filled + i + N) % N;
+                const v = series[key][j];
+                const x = (i / (filled - 1)) * w;
+                const y = h - ((v - r.min) / (r.max - r.min)) * h;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // latest dot
+            const lastJ = (idx - 1 + N) % N;
+            const lastV = series[key][lastJ];
+            const yLast = h - ((lastV - r.min) / (r.max - r.min)) * h;
+            ctx.fillStyle = "rgba(255,255,255,0.92)";
+            ctx.beginPath();
+            ctx.arc(Math.max(6, w - 6), yLast, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // ---- WebSocket + status ----
+        function connectWS() {
+            try { if (ws) ws.close(); } catch (_) { }
+
+            ws = new WebSocket(WS_URL);
+            wsStateEl.textContent = wsStateText();
+
+            ws.onopen = () => {
+                wsStateEl.textContent = wsStateText();
+                lastDataAt = Date.now();
+                setWaiting(true); // open != streaming yet
+                console.log('ws open');
+            };
+
+            ws.onmessage = (msg) => {
+                const line = String(msg.data || "");
+                valueEl.textContent = line;
+
+                lastDataAt = Date.now();
+                if (isWaiting) {
+                    statusEl.textContent = "status: streaming";
+                    setDot("ok");
+                    isWaiting = false;
+                }
+
+                lastTsEl.textContent = "last: " + nowTime();
+
+                const nums = parseLine(line);
+                if (nums) {
+                    const [ax, ay, az, gx, gy, gz] = nums;
+                    pushSample(ax, ay, az, gx, gy, gz);
+                }
+            };
+
+            ws.onclose = () => {
+                wsStateEl.textContent = wsStateText();
+                setWaiting(true);
+                console.log('ws closed');
+            };
+
+            ws.onerror = (e) => {
+                wsStateEl.textContent = wsStateText();
+                setWaiting(true);
+                console.log('ws error', e);
+            };
+        }
+
+        async function checkStatus() {
+            try {
+                const r = await fetch('/status', { cache: "no-store" });
+                const j = await r.json();
+
+                devEl.textContent = j.connected ? "connected" : "disconnected";
+
+                if (j.connected) {
+                    statusEl.textContent = "status: device connected";
+                    setDot("ok");
+                    if (!ws || ws.readyState !== WebSocket.OPEN) connectWS();
+                } else {
+                    statusEl.textContent = "status: device disconnected";
+                    setDot("bad");
+                    setWaiting(true);
+                }
+
+                wsStateEl.textContent = wsStateText();
+            } catch (e) {
+                statusEl.textContent = "status: error";
+                devEl.textContent = "unknown";
+                setDot("warn");
+                setWaiting(true);
+                wsStateEl.textContent = wsStateText();
+            }
+        }
+
+        reconnectBtn.addEventListener('click', async () => {
+            reconnectBtn.disabled = true;
+            statusEl.textContent = 'status: checking...';
+            setDot("warn");
+
+            try {
+                const r = await fetch('/reconnect', { method: 'POST', cache: "no-store" });
+                const j = await r.json();
+                statusEl.textContent = 'status: ' + j.message;
+            } catch (e) {
+                statusEl.textContent = 'status: reconnect failed';
+            } finally {
+                reconnectBtn.disabled = false;
+                setTimeout(checkStatus, 800);
+            }
+        });
+
+        // ---- data watchdog (WS open but stream stalls) ----
+        setInterval(() => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                setWaiting(true);
+                wsStateEl.textContent = wsStateText();
+                return;
+            }
+            if (lastDataAt && (Date.now() - lastDataAt) > DATA_TIMEOUT_MS) {
+                setWaiting(true);
+            }
+            wsStateEl.textContent = wsStateText();
+        }, 250);
+
+        // boot
+        connectWS();
+        checkStatus();
+        setWaiting(true);
+        setInterval(checkStatus, 5000);
+
+        // initial sizing + draw
+        resizeAllCanvases();
+        requestRedraw();
+    </script>
+</body>
+
+</html>
