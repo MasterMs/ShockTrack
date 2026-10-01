@@ -6,13 +6,39 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		41E19DB23066FFEF004BB60C /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 41E19DB13066FFEF004BB60C /* FirebaseAuth */; };
+		41E19DB43066FFEF004BB60C /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 41E19DB33066FFEF004BB60C /* FirebaseCore */; };
+		41E19DB63066FFEF004BB60C /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 41E19DB53066FFEF004BB60C /* FirebaseDatabase */; };
+		41E19DB83066FFEF004BB60C /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 41E19DB73066FFEF004BB60C /* FirebaseFirestore */; };
+		41E19DBA3066FFEF004BB60C /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 41E19DB93066FFEF004BB60C /* FirebaseStorage */; };
+		41E19DBD3067003F004BB60C /* FirebaseAppleSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 41E19DBC3067003F004BB60C /* FirebaseAppleSwiftUI */; };
+		41E19DBF3067003F004BB60C /* FirebaseDatabaseUI in Frameworks */ = {isa = PBXBuildFile; productRef = 41E19DBE3067003F004BB60C /* FirebaseDatabaseUI */; };
+		41E19DC13067003F004BB60C /* FirebaseFirestoreUI in Frameworks */ = {isa = PBXBuildFile; productRef = 41E19DC03067003F004BB60C /* FirebaseFirestoreUI */; };
+		41E19DC33067003F004BB60C /* FirebaseGoogleSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 41E19DC23067003F004BB60C /* FirebaseGoogleSwiftUI */; };
+		41E19DC53067003F004BB60C /* FirebaseStorageUI in Frameworks */ = {isa = PBXBuildFile; productRef = 41E19DC43067003F004BB60C /* FirebaseStorageUI */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		413100AB2ECE484C00A93CA9 /* ShockTrackMobileApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShockTrackMobileApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		41E19DC7306702D9004BB60C /* Exceptions for "ShockTrackMobileApp" folder in "ShockTrackMobileApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 413100AA2ECE484C00A93CA9 /* ShockTrackMobileApp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		413100AD2ECE484C00A93CA9 /* ShockTrackMobileApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				41E19DC7306702D9004BB60C /* Exceptions for "ShockTrackMobileApp" folder in "ShockTrackMobileApp" target */,
+			);
 			path = ShockTrackMobileApp;
 			sourceTree = "<group>";
 		};
@@ -23,6 +49,16 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				41E19DBF3067003F004BB60C /* FirebaseDatabaseUI in Frameworks */,
+				41E19DC33067003F004BB60C /* FirebaseGoogleSwiftUI in Frameworks */,
+				41E19DB63066FFEF004BB60C /* FirebaseDatabase in Frameworks */,
+				41E19DC53067003F004BB60C /* FirebaseStorageUI in Frameworks */,
+				41E19DB83066FFEF004BB60C /* FirebaseFirestore in Frameworks */,
+				41E19DB43066FFEF004BB60C /* FirebaseCore in Frameworks */,
+				41E19DBA3066FFEF004BB60C /* FirebaseStorage in Frameworks */,
+				41E19DC13067003F004BB60C /* FirebaseFirestoreUI in Frameworks */,
+				41E19DBD3067003F004BB60C /* FirebaseAppleSwiftUI in Frameworks */,
+				41E19DB23066FFEF004BB60C /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +101,16 @@
 			);
 			name = ShockTrackMobileApp;
 			packageProductDependencies = (
+				41E19DB13066FFEF004BB60C /* FirebaseAuth */,
+				41E19DB33066FFEF004BB60C /* FirebaseCore */,
+				41E19DB53066FFEF004BB60C /* FirebaseDatabase */,
+				41E19DB73066FFEF004BB60C /* FirebaseFirestore */,
+				41E19DB93066FFEF004BB60C /* FirebaseStorage */,
+				41E19DBC3067003F004BB60C /* FirebaseAppleSwiftUI */,
+				41E19DBE3067003F004BB60C /* FirebaseDatabaseUI */,
+				41E19DC03067003F004BB60C /* FirebaseFirestoreUI */,
+				41E19DC23067003F004BB60C /* FirebaseGoogleSwiftUI */,
+				41E19DC43067003F004BB60C /* FirebaseStorageUI */,
 			);
 			productName = ShockTrackMobileApp;
 			productReference = 413100AB2ECE484C00A93CA9 /* ShockTrackMobileApp.app */;
@@ -94,6 +140,10 @@
 			);
 			mainGroup = 413100A22ECE484C00A93CA9;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				41E19DB03066FFEF004BB60C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				41E19DBB3067003F004BB60C /* XCRemoteSwiftPackageReference "FirebaseUI-iOS" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 413100AC2ECE484C00A93CA9 /* Products */;
 			projectDirPath = "";
@@ -253,6 +303,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShockTrackMobileApp/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -284,6 +335,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShockTrackMobileApp/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -328,6 +380,78 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		41E19DB03066FFEF004BB60C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.19.2;
+			};
+		};
+		41E19DBB3067003F004BB60C /* XCRemoteSwiftPackageReference "FirebaseUI-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/FirebaseUI-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 16.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		41E19DB13066FFEF004BB60C /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41E19DB03066FFEF004BB60C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		41E19DB33066FFEF004BB60C /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41E19DB03066FFEF004BB60C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		41E19DB53066FFEF004BB60C /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41E19DB03066FFEF004BB60C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
+		};
+		41E19DB73066FFEF004BB60C /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41E19DB03066FFEF004BB60C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		41E19DB93066FFEF004BB60C /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41E19DB03066FFEF004BB60C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		41E19DBC3067003F004BB60C /* FirebaseAppleSwiftUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41E19DBB3067003F004BB60C /* XCRemoteSwiftPackageReference "FirebaseUI-iOS" */;
+			productName = FirebaseAppleSwiftUI;
+		};
+		41E19DBE3067003F004BB60C /* FirebaseDatabaseUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41E19DBB3067003F004BB60C /* XCRemoteSwiftPackageReference "FirebaseUI-iOS" */;
+			productName = FirebaseDatabaseUI;
+		};
+		41E19DC03067003F004BB60C /* FirebaseFirestoreUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41E19DBB3067003F004BB60C /* XCRemoteSwiftPackageReference "FirebaseUI-iOS" */;
+			productName = FirebaseFirestoreUI;
+		};
+		41E19DC23067003F004BB60C /* FirebaseGoogleSwiftUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41E19DBB3067003F004BB60C /* XCRemoteSwiftPackageReference "FirebaseUI-iOS" */;
+			productName = FirebaseGoogleSwiftUI;
+		};
+		41E19DC43067003F004BB60C /* FirebaseStorageUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41E19DBB3067003F004BB60C /* XCRemoteSwiftPackageReference "FirebaseUI-iOS" */;
+			productName = FirebaseStorageUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 413100A32ECE484C00A93CA9 /* Project object */;
 }
