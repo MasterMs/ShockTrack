@@ -1,21 +1,80 @@
-MIT License
+ShockTrack Restricted License
+Version 1.0
 
-Copyright (c) 2025 Marco
+Copyright (c) 2025
+ShockTrack Project Contributors
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+All rights reserved.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+--------------------------------------------------
+PERMITTED USE
+--------------------------------------------------
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+This software, including all source code, documentation, designs, and related materials
+(the “Software”), is provided solely for use by individuals who are:
+
+1. Officially associated with the ShockTrack project, including but not limited to:
+   - Current or former project contributors
+   - Academic supervisors
+   - Approved collaborators explicitly authorized by the ShockTrack project team
+
+2. Using the Software strictly for:
+   - Academic
+   - Research
+   - Educational
+   - Internal project development purposes
+
+--------------------------------------------------
+RESTRICTED USE
+--------------------------------------------------
+
+Commercial use of this Software is STRICTLY PROHIBITED without prior, explicit, written
+permission from the ShockTrack project owners.
+
+Commercial use includes, but is not limited to:
+- Selling the Software or derivatives
+- Using the Software in a paid product or service
+- Incorporating the Software into proprietary or closed-source systems
+- Using the Software to generate revenue, directly or indirectly
+- Consulting, contracting, or client work involving this Software
+
+--------------------------------------------------
+NO REDISTRIBUTION
+--------------------------------------------------
+
+Redistribution, sublicensing, publishing, or sharing of this Software or substantial
+portions thereof is NOT permitted without explicit written consent from the ShockTrack
+project owners.
+
+--------------------------------------------------
+DERIVATIVE WORKS
+--------------------------------------------------
+
+Modification or creation of derivative works is only permitted for individuals
+associated with the ShockTrack project and only for internal, non-commercial purposes.
+
+All derivative works remain subject to this license.
+
+--------------------------------------------------
+NO WARRANTY
+--------------------------------------------------
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT,
+OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+--------------------------------------------------
+PERMISSION REQUESTS
+--------------------------------------------------
+
+Requests for commercial use, redistribution, or external collaboration must be made
+explicitly and in writing to the ShockTrack project owners.
+
+Permission is granted only if confirmed in writing.
+
+--------------------------------------------------
+END OF LICENSE
+--------------------------------------------------
