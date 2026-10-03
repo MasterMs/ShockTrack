@@ -6,16 +6,19 @@
 //
 
 import SwiftUI
+import FirebaseAuthSwiftUI
+internal import FirebaseAuth
 
 struct HomeView: View {
     @Binding var selectedTab: Int
+    @Environment(AuthService.self) private var authService
 
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     
-                    Text("Welcome Back")
+                    Text("Welcome Back\(firstName.map { " \($0)" } ?? "")")
                         .font(.largeTitle)
                         .bold()
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -60,7 +63,24 @@ struct HomeView: View {
                 }
                 .padding(.horizontal)
             }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        authService.isPresented = true
+                    } label: {
+                        Image(systemName: "person.crop.circle")
+                            .imageScale(.large)
+                    }
+                    .accessibilityLabel("Account")
+                }
+            }
         }
+    }
+    
+    private var firstName: String? {
+        guard let displayName = authService.currentUser?.displayName, !displayName.isEmpty else { return nil }
+        let parts = displayName.split(separator: " ")
+        return parts.first.map(String.init)
     }
 }
 
@@ -160,6 +180,9 @@ struct PostView: View {
 }
 
 struct MainTabView: View {
+    
+    @Environment(AuthService.self) private var authService
+    
     @State private var selectedTab: Int = 0
 
     var body: some View {
@@ -190,7 +213,9 @@ struct MainTabView: View {
         }
     }
 }
-
-#Preview {
+/*
+ #Preview {
     MainTabView()
-}
+ }
+ */
+ 

@@ -248,6 +248,9 @@
 
         canvas {
             width: 100%;
+            height: clamp(110px, 18vw, 160px);
+
+            /* resizable: grows/shrinks with screen */
             display: block;
             border-radius: 12px;
             background: rgba(0, 0, 0, 0.22);
@@ -298,7 +301,7 @@
                 <div class="charts">
                     <div class="chart">
                         <div class="chartHead"><span>acel_x</span><span class="chip" id="val_ax">—</span></div>
-                        <canvas id="c_ax" height="120"></canvas>
+                        <canvas id="c_ax"></canvas>
                     </div>
                     <div class="chart">
                         <div class="chartHead"><span>acel_y</span><span class="chip" id="val_ay">—</span></div>
@@ -375,6 +378,11 @@
 
         let ws = null;
 
+        // ---- WAITING / DATA WATCHDOG ----
+        const DATA_TIMEOUT_MS = 1500; // tweak based on sample rate
+        let lastDataAt = 0;
+        let isWaiting = true;
+
         function setDot(state) {
             dotEl.classList.remove('ok', 'bad', 'warn');
             dotEl.classList.add(state);
@@ -393,6 +401,17 @@
                 case WebSocket.CLOSING: return "closing";
                 case WebSocket.CLOSED: return "closed";
                 default: return "unknown";
+            }
+        }
+
+        function setWaiting(waiting) {
+            isWaiting = waiting;
+
+            if (waiting) {
+                valueEl.textContent = "(waiting for data)";
+                lastTsEl.textContent = "last: —";
+                statusEl.textContent = "status: waiting for data";
+                setDot("warn");
             }
         }
 
@@ -426,12 +445,79 @@
             gz: document.getElementById('val_gz'),
         };
 
+        // ---- CANVAS RESIZE (only when needed) ----
+        const ctxMap = {};
+        const sizeMap = {}; // key -> {cssW, cssH, pxW, pxH, dpr}
+
+        function resizeCanvasToDisplaySize(key) {
+            const c = canvases[key];
+            if (!c) return;
+
+            const dpr = window.devicePixelRatio || 1;
+
+            const rect = c.getBoundingClientRect();
+            const cssW = Math.max(1, Math.floor(rect.width));
+
+            // rect.height can be 0 briefly on mobile; fallback to computed style height or 120
+            let cssH = Math.floor(rect.height);
+            if (cssH < 10) {
+                const hStr = getComputedStyle(c).height; // like "132px"
+                const parsed = Math.floor(parseFloat(hStr));
+                cssH = (parsed && parsed >= 10) ? parsed : 120;
+            }
+
+            const pxW = Math.floor(cssW * dpr);
+            const pxH = Math.floor(cssH * dpr);
+
+            const prev = sizeMap[key];
+            if (prev && prev.pxW === pxW && prev.pxH === pxH && prev.dpr === dpr) return;
+
+            c.width = pxW;
+            c.height = pxH;
+
+            const ctx = c.getContext("2d", { alpha: true, desynchronized: true });
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            ctxMap[key] = ctx;
+            sizeMap[key] = { cssW, cssH, pxW, pxH, dpr };
+        }
+
+
+        function resizeAllCanvases() {
+            for (const k of Object.keys(canvases)) resizeCanvasToDisplaySize(k);
+            requestRedraw(); // after resize, redraw once
+        }
+
+        // ResizeObserver catches mobile viewport/layout changes without a 60fps loop
+        const ro = new ResizeObserver(() => resizeAllCanvases());
+        for (const c of Object.values(canvases)) ro.observe(c);
+
+        window.addEventListener('orientationchange', () => setTimeout(resizeAllCanvases, 250));
+        window.addEventListener('resize', () => resizeAllCanvases());
+
         function parseLine(line) {
             const parts = String(line).split(',').map(s => s.trim());
             if (parts.length !== 6) return null;
             const nums = parts.map(p => Number(p));
             if (nums.some(n => Number.isNaN(n))) return null;
             return nums;
+        }
+
+        // ---- REDRAW ONLY WHEN NEEDED ----
+        let needsRedraw = true;
+        let rafPending = false;
+
+        function requestRedraw() {
+            needsRedraw = true;
+            if (rafPending) return;
+            rafPending = true;
+            requestAnimationFrame(() => {
+                rafPending = false;
+                if (!needsRedraw) return;
+                needsRedraw = false;
+                drawChart('ax'); drawChart('ay'); drawChart('az');
+                drawChart('gx'); drawChart('gy'); drawChart('gz');
+            });
         }
 
         function pushSample(ax, ay, az, gx, gy, gz) {
@@ -451,6 +537,8 @@
             labels.gx.textContent = gx.toFixed(2);
             labels.gy.textContent = gy.toFixed(2);
             labels.gz.textContent = gz.toFixed(2);
+
+            requestRedraw(); // redraw once per incoming sample
         }
 
         function getRange(arr) {
@@ -466,20 +554,52 @@
             return { min: mn, max: mx };
         }
 
+        // ---- Y-AXIS SCALE ----
+        function drawYAxis(ctx, w, h, r) {
+            ctx.save();
+
+            ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+            ctx.fillStyle = "rgba(255,255,255,0.55)";
+            ctx.textBaseline = "middle";
+
+            const ticks = [
+                { v: r.max, label: r.max.toFixed(2) },
+                { v: (r.min + r.max) / 2, label: ((r.min + r.max) / 2).toFixed(2) },
+                { v: r.min, label: r.min.toFixed(2) },
+            ];
+
+            // include 0 tick if in range
+            if (r.min < 0 && r.max > 0) {
+                ticks.splice(1, 0, { v: 0, label: "0.00" });
+            }
+
+            for (const t of ticks) {
+                const y = h - ((t.v - r.min) / (r.max - r.min)) * h;
+
+                // tick mark
+                ctx.strokeStyle = "rgba(255,255,255,0.14)";
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(6, y);
+                ctx.stroke();
+
+                ctx.fillText(t.label, 10, y);
+            }
+
+            ctx.restore();
+        }
+
         function drawChart(key) {
+            // Only resize when needed (NOT every frame)
+            resizeCanvasToDisplaySize(key);
+
             const c = canvases[key];
-            if (!c) return;
+            const ctx = ctxMap[key];
+            const s = sizeMap[key];
+            if (!c || !ctx || !s) return;
 
-            const dpr = window.devicePixelRatio || 1;
-            const w = c.clientWidth;
-            const h = Number(c.getAttribute('height')) || 120;
-
-            // crisp canvas
-            c.width = Math.floor(w * dpr);
-            c.height = Math.floor(h * dpr);
-
-            const ctx = c.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            const w = s.cssW;
+            const h = s.cssH;
 
             // clear
             ctx.clearRect(0, 0, w, h);
@@ -496,8 +616,12 @@
                 ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
             }
 
-            // centerline (0)
             const r = getRange(series[key]);
+
+            // y-axis scale (min/mid/max + optional 0)
+            drawYAxis(ctx, w, h, r);
+
+            // centerline (0)
             ctx.strokeStyle = "rgba(255,255,255,0.16)";
             const y0 = h - ((0 - r.min) / (r.max - r.min)) * h;
             ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(w, y0); ctx.stroke();
@@ -528,17 +652,6 @@
             ctx.fill();
         }
 
-        function renderLoop() {
-            drawChart('ax');
-            drawChart('ay');
-            drawChart('az');
-            drawChart('gx');
-            drawChart('gy');
-            drawChart('gz');
-            requestAnimationFrame(renderLoop);
-        }
-        requestAnimationFrame(renderLoop);
-
         // ---- WebSocket + status ----
         function connectWS() {
             try { if (ws) ws.close(); } catch (_) { }
@@ -548,12 +661,22 @@
 
             ws.onopen = () => {
                 wsStateEl.textContent = wsStateText();
+                lastDataAt = Date.now();
+                setWaiting(true); // open != streaming yet
                 console.log('ws open');
             };
 
             ws.onmessage = (msg) => {
                 const line = String(msg.data || "");
                 valueEl.textContent = line;
+
+                lastDataAt = Date.now();
+                if (isWaiting) {
+                    statusEl.textContent = "status: streaming";
+                    setDot("ok");
+                    isWaiting = false;
+                }
+
                 lastTsEl.textContent = "last: " + nowTime();
 
                 const nums = parseLine(line);
@@ -565,11 +688,13 @@
 
             ws.onclose = () => {
                 wsStateEl.textContent = wsStateText();
+                setWaiting(true);
                 console.log('ws closed');
             };
 
             ws.onerror = (e) => {
                 wsStateEl.textContent = wsStateText();
+                setWaiting(true);
                 console.log('ws error', e);
             };
         }
@@ -588,6 +713,7 @@
                 } else {
                     statusEl.textContent = "status: device disconnected";
                     setDot("bad");
+                    setWaiting(true);
                 }
 
                 wsStateEl.textContent = wsStateText();
@@ -595,6 +721,7 @@
                 statusEl.textContent = "status: error";
                 devEl.textContent = "unknown";
                 setDot("warn");
+                setWaiting(true);
                 wsStateEl.textContent = wsStateText();
             }
         }
@@ -616,10 +743,28 @@
             }
         });
 
+        // ---- data watchdog (WS open but stream stalls) ----
+        setInterval(() => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                setWaiting(true);
+                wsStateEl.textContent = wsStateText();
+                return;
+            }
+            if (lastDataAt && (Date.now() - lastDataAt) > DATA_TIMEOUT_MS) {
+                setWaiting(true);
+            }
+            wsStateEl.textContent = wsStateText();
+        }, 250);
+
         // boot
         connectWS();
         checkStatus();
+        setWaiting(true);
         setInterval(checkStatus, 5000);
+
+        // initial sizing + draw
+        resizeAllCanvases();
+        requestRedraw();
     </script>
 </body>
 
