@@ -16,7 +16,7 @@ struct CommunityView: View {
     @State private var vm = CommunityPostsViewModel()
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
@@ -256,4 +256,8 @@ struct CommunityPostCard: View {
             }
         }
     }
+}
+
+#Preview {
+    CommunityView()
 }

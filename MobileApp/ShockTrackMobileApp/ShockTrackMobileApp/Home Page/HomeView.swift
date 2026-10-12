@@ -12,6 +12,7 @@ internal import FirebaseAuth
 struct HomeView: View {
     @Binding var selectedTab: Int
     @Environment(AuthService.self) private var authService
+    @State private var vm = CommunityPostsViewModel()
 
     var body: some View {
         NavigationView {
@@ -48,6 +49,11 @@ struct HomeView: View {
                     
                     // Community Posts Section
                     SectionHeader(title: "New Community Posts")
+                    
+                    ForEach(vm.posts) { post in
+                        CommunityPostCard(post: post)
+                    }
+                    /*
                     VStack(spacing: 20) {
                         Button {
                             selectedTab = 2 // Community tab
@@ -60,6 +66,7 @@ struct HomeView: View {
                             PostView(title: "RX7 Drift Clip", views: "2483", image: "RX7")
                         }
                     }
+                    */
                 }
                 .padding(.horizontal)
             }
@@ -75,6 +82,8 @@ struct HomeView: View {
                 }
             }
         }
+        .onAppear { vm.start() }
+        .onDisappear { vm.stop() }
     }
     
     private var firstName: String? {

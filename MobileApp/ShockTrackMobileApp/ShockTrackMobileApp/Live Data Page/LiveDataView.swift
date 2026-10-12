@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CoreLocation
 import MapKit
 
 struct LiveDataView: View {
@@ -176,28 +177,103 @@ struct ResumeRecordingCard: View {
 }
 
 struct LocationCard: View {
-    
-    private let region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 44.0550, longitude: -78.6750),
-        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-    )
-    
+    @State private var locationManager = LocationManager()
+    @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
+
     var body: some View {
         VStack(alignment: .leading) {
             Text("Location")
                 .font(.headline)
-            Map(coordinateRegion: .constant(region), interactionModes: [.all])
-                .frame(width: 300, height: 170)
-                .cornerRadius(8)
-            Text("Canadian Tire Motorsport Park")
-                .font(.subheadline)
-                .frame(alignment: .center)
-            Text("Bowmanville, ON")
-                .font(.footnote)
+
+            Map(position: $position) {
+                UserAnnotation()
+            }
+            .mapControls { MapUserLocationButton() }
+            .frame(width: 300, height: 170)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            switch locationManager.authorization {
+            case .denied, .restricted:
+                Text("Location access is off")
+                    .font(.subheadline)
+                Text("Enable it in Settings to see where you are.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            default:
+                Text(locationManager.placeName ?? "Locating…")
+                    .font(.subheadline)
+                Text(locationManager.locality ?? " ")
+                    .font(.footnote)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding()
         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray6)))
+        .task { locationManager.start() }
+        .onDisappear { locationManager.stop() }
+    }
+}
+
+@Observable
+final class LocationManager: NSObject, CLLocationManagerDelegate {
+    var location: CLLocation?
+    var placeName: String?
+    var locality: String?
+    var authorization: CLAuthorizationStatus = .notDetermined
+
+    private let manager = CLLocationManager()
+    private let geocoder = CLGeocoder()
+    private var lastGeocoded: CLLocation?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter = 10          // meters; avoids constant updates
+        authorization = manager.authorizationStatus
+    }
+
+    func start() {
+        switch manager.authorizationStatus {
+        case .notDetermined:
+            manager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse, .authorizedAlways:
+            manager.startUpdatingLocation()
+        default:
+            break
+        }
+    }
+
+    func stop() { manager.stopUpdatingLocation() }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        authorization = manager.authorizationStatus
+        if authorization == .authorizedWhenInUse || authorization == .authorizedAlways {
+            manager.startUpdatingLocation()
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let latest = locations.last else { return }
+        location = latest
+        reverseGeocodeIfNeeded(latest)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("Location error: \(error)")
+    }
+
+    private func reverseGeocodeIfNeeded(_ loc: CLLocation) {
+        // Geocoding is rate-limited, so only re-lookup after moving ~200 m
+        if let last = lastGeocoded, loc.distance(from: last) < 200 { return }
+        lastGeocoded = loc
+        geocoder.reverseGeocodeLocation(loc) { [weak self] placemarks, _ in
+            guard let p = placemarks?.first else { return }
+            self?.placeName = p.name ?? p.thoroughfare
+            let city = p.locality ?? ""
+            let region = p.administrativeArea ?? ""
+            self?.locality = [city, region].filter { !$0.isEmpty }.joined(separator: ", ")
+        }
     }
 }
 
