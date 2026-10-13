@@ -131,7 +131,10 @@ struct SocketView: View {
             reason: nil
         )
 
-        guard let url = URL(string: "ws://192.168.2.12:8000/ws") else {
+        // Old Websocket IP: ws://192.168.2.12:8000/ws
+        // New Websocket IP: ws://184.145.25.255:8000/ws
+        
+        guard let url = URL(string: "ws://184.145.25.255:8000/ws") else {
             return
         }
 

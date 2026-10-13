@@ -15,5 +15,12 @@
 			</array>
 		</dict>
 	</array>
+	<key>LocalNetworkUsageDescription</key>
+	<string>Connects to your sensor server on the local network.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

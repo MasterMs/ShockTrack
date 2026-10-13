@@ -6,19 +6,12 @@
 //
 
 import SwiftUI
+import Foundation
 import Charts
 import FirebaseDatabase
 internal import FirebaseAuth
 import CoreLocation
 import MapKit
-
-/*
-struct GraphSample: Identifiable {
-    let id = UUID()
-    let index: Int
-    let value: Double
-}
-*/
 
 // Variables for suspension data received from websocket
 struct LiveSensorData: Codable {
@@ -41,63 +34,61 @@ struct GraphPoint3: Identifiable {
 
 // Function for uploading suspension data taken in from the websocket and sending it to Firebase.
 @Observable
-final class LiveUploader {
-    // Variables for websocket connection
-    private var webSocketTask: URLSessionWebSocketTask?
-    private let session = URLSession(configuration: .default)
-    private let socketURLString: String
+final class LiveUploader: NSObject, URLSessionWebSocketDelegate {
+    @ObservationIgnored private var webSocketTask: URLSessionWebSocketTask?
+    @ObservationIgnored private var session: URLSession!
+    @ObservationIgnored private let socketURLString: String
+    @ObservationIgnored private let basePath: String
+    @ObservationIgnored var onConnectionChange: ((Bool) -> Void)?
 
-    // Function for upading the isConnected variable on connection
-    var onConnectionChange: ((Bool) -> Void)?
-    private(set) var isConnected: Bool = false {
-        didSet { onConnectionChange?(isConnected) }
-    }
+    private(set) var isConnected: Bool = false
 
-    // On function intialization sets the socket URL
-    init(socketURLString: String) {
+    init(socketURLString: String, basePath: String = "sensors/current") {
         self.socketURLString = socketURLString
+        self.basePath = basePath
+        super.init()
+        session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
     }
 
-    // Function for starting upload of suspension data
     func start() {
         stop()
-        // Checks that there is an authenticated user for it to send the data as to Firebase
         guard let uid = Auth.auth().currentUser?.uid else {
             print("[LiveUploader] No authenticated user; aborting start().")
             return
         }
-        // Catch for if the websocket URL is invalid.
         guard let url = URL(string: socketURLString) else {
             print("[LiveUploader] Invalid WebSocket URL: \(socketURLString)")
             return
         }
-        
-        // Establishes connection to websocket with local URL for connecting over Mobile Hotspot
         let task = session.webSocketTask(with: url)
-        self.webSocketTask = task
+        webSocketTask = task
         task.resume()
-        // Updates isConnected variable to display "connected" in settings menu.
-        self.isConnected = true
-        // Call to listening function
-        listenAndForward(uid: uid)
+        listen(on: task, uid: uid)
     }
 
-    // Function for stopping the connection to the websocket
     func stop() {
-        // Ends websocket connection
-        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        let task = webSocketTask
         webSocketTask = nil
-        // Updates connected variable
-        self.isConnected = false
+        task?.cancel(with: .goingAway, reason: nil)
+        setConnected(false)
     }
 
-    // Function for listening to Websocket
-    private func listenAndForward(uid: String) {
-        webSocketTask?.receive { [weak self] result in
-            guard let self else { return }
+    private func setConnected(_ value: Bool) {
+        guard isConnected != value else { return }
+        isConnected = value
+        onConnectionChange?(value)
+    }
+
+    private func listen(on task: URLSessionWebSocketTask, uid: String) {
+        task.receive { [weak self] result in
+            // Ignore callbacks from a task that has been replaced or stopped
+            guard let self, task === self.webSocketTask else { return }
+
             switch result {
             case .failure(let error):
                 print("[LiveUploader] WebSocket receive error: \(error)")
+                self.setConnected(false)
+                return                  // do NOT re-arm after a failure
             case .success(let message):
                 switch message {
                 case .string(let text):
@@ -110,18 +101,16 @@ final class LiveUploader {
                     break
                 }
             }
-            // Continue listening
-            self.listenAndForward(uid: uid)
+            self.listen(on: task, uid: uid)
         }
     }
 
-    // Function for handling websocket data
     private func handleText(_ text: String, uid: String) {
         guard let data = text.data(using: .utf8) else { return }
-        // Takes in websocket data and sets the payload with suspension data to be updated to firebase
         do {
             let sensor = try JSONDecoder().decode(LiveSensorData.self, from: data)
             let payload: [String: Any] = [
+                "t": ServerValue.timestamp(),
                 "accel_x": sensor.accel_x,
                 "accel_y": sensor.accel_y,
                 "accel_z": sensor.accel_z,
@@ -129,15 +118,27 @@ final class LiveUploader {
                 "gyro_y": sensor.gyro_y,
                 "gyro_z": sensor.gyro_z
             ]
-            let ref = Database.database().reference(withPath: "live/\(uid)")
-            ref.setValue(payload) { error, _ in
-                if let error = error {
-                    print("[LiveUploader] Failed to write live payload: \(error)")
+            Database.database().reference(withPath: "\(basePath)/\(uid)")
+                .setValue(payload) { error, _ in
+                    if let error { print("[LiveUploader] Failed to write live payload: \(error)") }
                 }
-            }
         } catch {
             print("[LiveUploader] JSON decode error: \(error) for text: \(text)")
         }
+    }
+
+    // MARK: - URLSessionWebSocketDelegate
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
+                    didOpenWithProtocol protocol: String?) {
+        guard webSocketTask === self.webSocketTask else { return }
+        setConnected(true)
+    }
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
+                    didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        guard webSocketTask === self.webSocketTask else { return }
+        setConnected(false)
     }
 }
 
@@ -303,7 +304,7 @@ final class GPSTelemetry: NSObject, CLLocationManagerDelegate {
     }
 }
 
-// Dummy Fake Sensor Data for Testing reciving data from Firebase
+// Dummy Fake Sensor Data for Testing sending and reciving data from Firebase
 @Observable
 final class FakeSensorWriter {
     private var task: Task<Void, Never>?
@@ -342,7 +343,7 @@ struct RecordingView: View {
     // Variable for GPS telemetry
     @State private var telemetry = GPSTelemetry()
     // Variable for websocket data uploaded
-    @State private var uploader = LiveUploader(socketURLString: "ws://192.168.2.12:8000/ws")
+    @State private var uploader = LiveUploader(socketURLString: "ws://184.145.25.255:8000/ws")
     // Variable for Testing Sensor Data
     @State private var fakeSensorData = FakeSensorWriter()
     // States of uploading, fake sensor data and websocket connection.
