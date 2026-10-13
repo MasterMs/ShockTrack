@@ -343,7 +343,7 @@ struct RecordingView: View {
     // Variable for GPS telemetry
     @State private var telemetry = GPSTelemetry()
     // Variable for websocket data uploaded
-    @State private var uploader = LiveUploader(socketURLString: "ws://184.145.25.255:8000/ws")
+    @State private var uploader = LiveUploader(socketURLString: "ws://192.168.2.12:8000/ws")
     // Variable for Testing Sensor Data
     @State private var fakeSensorData = FakeSensorWriter()
     // States of uploading, fake sensor data and websocket connection.
