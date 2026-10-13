@@ -104,7 +104,7 @@ final class LiveUploader: NSObject, URLSessionWebSocketDelegate {
             self.listen(on: task, uid: uid)
         }
     }
-
+    /* Old Handle Text
     private func handleText(_ text: String, uid: String) {
         guard let data = text.data(using: .utf8) else { return }
         do {
@@ -126,7 +126,29 @@ final class LiveUploader: NSObject, URLSessionWebSocketDelegate {
             print("[LiveUploader] JSON decode error: \(error) for text: \(text)")
         }
     }
+    */
+    private func handleText(_ text: String, uid: String) {
+        let parts = text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: ",")
+            .compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
 
+        guard parts.count == 6 else {
+            print("[LiveUploader] Expected 6 values, got \(parts.count): \(text)")
+            return
+        }
+
+        let payload: [String: Any] = [
+            "t": ServerValue.timestamp(),
+            "accel_x": parts[0], "accel_y": parts[1], "accel_z": parts[2],
+            "gyro_x": parts[3], "gyro_y": parts[4], "gyro_z": parts[5]
+        ]
+        Database.database().reference(withPath: "\(basePath)/\(uid)")
+            .setValue(payload) { error, _ in
+                if let error { print("[LiveUploader] Failed to write live payload: \(error)") }
+            }
+    }
+    
     // MARK: - URLSessionWebSocketDelegate
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
