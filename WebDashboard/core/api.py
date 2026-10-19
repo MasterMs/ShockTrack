@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from typing import Optional
 from uuid import uuid4
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -97,7 +98,9 @@ class ShockTrackAPI:
         @self.app.get("/status")
         async def status():
             return JSONResponse({
-                "connected": await self.serial_mgr.is_connected()
+                "connected": await self.serial_mgr.is_connected(),
+                "csv_logging": await self.serial_mgr.is_csv_logging(),
+                "csv_file": self.serial_mgr.logger.filepath
             })
 
         # Reconnect serial device
@@ -123,6 +126,42 @@ class ShockTrackAPI:
             return JSONResponse({
                 "connected": False,
                 "message": "Reconnect attempt started; not connected yet"
+            })
+
+        # Start CSV recording
+        @self.app.post("/startCSV")
+        async def start_csv(filepath: Optional[str] = None):
+            if await self.serial_mgr.is_csv_logging():
+                return JSONResponse({
+                    "recording": True,
+                    "filepath": self.serial_mgr.logger.filepath,
+                    "message": "CSV recording is already active"
+                })
+
+            opened_filepath = await self.serial_mgr.start_csv(filepath)
+
+            return JSONResponse({
+                "recording": True,
+                "filepath": opened_filepath,
+                "message": "CSV recording started"
+            })
+
+        # Stop CSV recording
+        @self.app.post("/stopCSV")
+        async def stop_csv():
+            filepath = await self.serial_mgr.stop_csv()
+
+            if filepath is None:
+                return JSONResponse({
+                    "recording": False,
+                    "filepath": None,
+                    "message": "CSV recording is not active"
+                })
+
+            return JSONResponse({
+                "recording": False,
+                "filepath": filepath,
+                "message": "CSV recording stopped"
             })
 
         # Dashboard
