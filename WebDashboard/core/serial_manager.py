@@ -28,6 +28,7 @@ class SerialManager:
 
         self._ser: Optional[serial.Serial] = None
         self._ser_lock = asyncio.Lock()
+        self._csv_lock = asyncio.Lock()
 
         self._task: Optional[asyncio.Task] = None
         self._stop = False
@@ -72,17 +73,35 @@ class SerialManager:
             except asyncio.CancelledError:
                 pass
         await self.force_close()
-        self.logger.close()
+        await self.stop_csv()
 
     async def reconnect(self) -> None:
         await self.force_close()
         await self.start()
 
-    async def _run(self) -> None:
-        # Open CSV once per run
-        self.logger.open()
+    async def start_csv(self, filepath: Optional[str] = None) -> str:
+        """Start logging sensor rows to a new or existing CSV file."""
+        async with self._csv_lock:
+            if self.logger.is_open():
+                return self.logger.filepath or ""
 
-        # Ensure serial is opened (wait until device available)
+            return self.logger.open(filepath)
+
+    async def stop_csv(self) -> Optional[str]:
+        """Stop CSV logging and return the file that was being written."""
+        async with self._csv_lock:
+            if not self.logger.is_open():
+                return None
+
+            filepath = self.logger.filepath
+            self.logger.close()
+            return filepath
+
+    async def is_csv_logging(self) -> bool:
+        async with self._csv_lock:
+            return self.logger.is_open()
+
+    async def _run(self) -> None:
         try:
             await self._open_serial_with_retry()
         except asyncio.CancelledError:
@@ -109,11 +128,12 @@ class SerialManager:
 
                 parsed = self.parser.parse(raw)
 
-                # Log to CSV
-                self.logger.write(parsed.to_csv_row())
-                print(parsed.to_csv_row())
+                # Log to CSV only while recording is enabled
+                async with self._csv_lock:
+                    if self.logger.is_open():
+                        self.logger.write(parsed.to_csv_row())
 
-                # Broadcast to websocket clients
+                # Broadcast to websocket clients regardless of CSV recording state
                 await self.ws_hub.broadcast_text(parsed.to_ws_text())
 
                 await asyncio.sleep(0)
@@ -122,5 +142,5 @@ class SerialManager:
             raise
         finally:
             await self.force_close()
-            self.logger.close()
+            await self.stop_csv()
             print("Serial port closed.")
