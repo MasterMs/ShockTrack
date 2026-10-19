@@ -1,7 +1,8 @@
-
 import asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from uuid import uuid4
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
@@ -14,6 +15,9 @@ class ShockTrackAPI:
     def __init__(self, serial_mgr: SerialManager):
         self.serial_mgr = serial_mgr
         self.app = FastAPI(lifespan=self._lifespan)
+
+        # Track active WebSocket connections
+        self.connections = {}
 
         # Static files directory
         self.static_dir = Path(__file__).resolve().parent.parent / "static"
@@ -41,15 +45,53 @@ class ShockTrackAPI:
         @self.app.websocket("/ws")
         async def ws_endpoint(ws: WebSocket):
             await ws.accept()
-            await self.serial_mgr.ws_hub.add(ws)
+
+            # Register connection
+            client_id = str(uuid4())[:8]
+
+            self.connections[client_id] = {
+                "websocket": ws,
+                "ip": ws.client.host if ws.client else "unknown",
+                "connected_at": datetime.now(timezone.utc)
+            }
 
             try:
+                await self.serial_mgr.ws_hub.add(ws)
+
                 while True:
                     await ws.receive_text()
+
             except WebSocketDisconnect:
                 pass
+
             finally:
+                # Remove from existing WebSocket hub
                 await self.serial_mgr.ws_hub.remove(ws)
+
+                # Remove from connection registry
+                self.connections.pop(client_id, None)
+
+        # List active WebSocket connections
+        @self.app.get("/connections")
+        async def get_connections():
+            now = datetime.now(timezone.utc)
+
+            connections = [
+                {
+                    "id": client_id,
+                    "ip": client["ip"],
+                    "connected_at": client["connected_at"].isoformat(),
+                    "duration_seconds": int(
+                        (now - client["connected_at"]).total_seconds()
+                    )
+                }
+                for client_id, client in self.connections.items()
+            ]
+
+            return JSONResponse({
+                "count": len(connections),
+                "connections": connections
+            })
 
         # Serial connection status
         @self.app.get("/status")
