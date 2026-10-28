@@ -25,7 +25,7 @@ class FirebaseHelper:
         return f"{user_id}_{filename}"
 
     def upload_csv(self, file_path: str, user_id: str) -> dict:
-        """Upload a CSV to Cloud Storage and register the session in Firestore."""
+        """Upload a CSV file to Firebase Cloud Storage."""
 
         file = Path(file_path)
 
@@ -38,13 +38,9 @@ class FirebaseHelper:
         if not user_id or user_id in (".", "..") or "/" in user_id or "\\" in user_id:
             raise ValueError("Invalid Firebase user ID")
 
-        # Generate session ID
         session_id = self.create_session_id(user_id, file.name)
-
-        # Firebase Cloud Storage path
         storage_path = f"users/{user_id}/sessions/{session_id}"
 
-        # Upload CSV to object storage
         blob = self.bucket.blob(storage_path)
         blob.upload_from_filename(
             str(file),
@@ -52,24 +48,10 @@ class FirebaseHelper:
             if_generation_match=0
         )
 
-        # Save recording metadata in Firestore
-        session_data = {
-            "sessionId": session_id,
-            "userId": user_id,
-            "fileName": file.name,
-            "csvPath": storage_path,
-            "uploadedAt": firestore.SERVER_TIMESTAMP
-        }
-
-        self.db.collection("users") \
-            .document(user_id) \
-            .collection("sessions") \
-            .document(session_id) \
-            .set(session_data)
-
         return {
             "sessionId": session_id,
-            "storagePath": storage_path
+            "storagePath": storage_path,
+            "fileName": file.name
         }
 
 

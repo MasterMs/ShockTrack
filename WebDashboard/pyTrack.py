@@ -29,7 +29,10 @@ serial_mgr = SerialManager(
     ws_hub=ws_hub,
 )
 
-api = ShockTrackAPI(serial_mgr)
+api = ShockTrackAPI(
+    firebase_user="test_user",
+    serial_mgr=serial_mgr
+)
 app = api.app
 
 

@@ -10,11 +10,17 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .serial_manager import SerialManager
+from .firebaseHelper import FirebaseHelper
 
 
 class ShockTrackAPI:
-    def __init__(self, serial_mgr: SerialManager):
+    def __init__(self, firebase_user: str, serial_mgr: SerialManager):
         self.serial_mgr = serial_mgr
+        self.firebase_user = firebase_user
+        self.firebase_helper = FirebaseHelper(
+            bucket_name="shocktrack_motion_data",
+            credentials_path="C:/Users/Marco/Documents/ShockTrack/git/ShockTrack/WebDashboard/shocktrack-512317-c8a483490e28.json"
+        )
         self.app = FastAPI(lifespan=self._lifespan)
 
         # Track active WebSocket connections
@@ -148,7 +154,7 @@ class ShockTrackAPI:
 
         # Stop CSV recording
         @self.app.post("/stopCSV")
-        async def stop_csv():
+        async def stop_csv() -> JSONResponse:
             filepath = await self.serial_mgr.stop_csv()
 
             if filepath is None:
@@ -158,9 +164,13 @@ class ShockTrackAPI:
                     "message": "CSV recording is not active"
                 })
 
+            firebase_response = self.firebase_helper.upload_csv(
+                filepath, user_id="test_user")
+
             return JSONResponse({
                 "recording": False,
-                "filepath": filepath,
+                "filepath": firebase_response.get("storagePath"),
+                "public_url": f"https://storage.googleapis.com/shocktrack_motion_data/users/test_user/sessions/test_user_sensor_output_with_timestamps_20261028-193157.csv",
                 "message": "CSV recording stopped"
             })
 
