@@ -71,3 +71,19 @@ class FirebaseHelper:
             "sessionId": session_id,
             "storagePath": storage_path
         }
+
+
+if __name__ == "__main__":
+    # Example usage
+    firebase_helper = FirebaseHelper(
+        bucket_name="shocktrack_motion_data",
+        credentials_path="C:/Users/Marco/Documents/ShockTrack/git/ShockTrack/WebDashboard/shocktrack-512317-c8a483490e28.json"
+    )
+
+    try:
+        result = firebase_helper.upload_csv(
+            "C:/Users/Marco/Documents/ShockTrack/git/ShockTrack/WebDashboard/logs/sensor_output_with_timestamps_20261019-194226.csv", "user123"
+        )
+        print("Upload successful:", result)
+    except Exception as e:
+        print("Error:", e)

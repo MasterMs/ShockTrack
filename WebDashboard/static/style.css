@@ -12,20 +12,46 @@
     box-sizing: border-box;
 }
 
+
+
 body {
     margin: 0;
     min-height: 100vh;
     color: var(--text);
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-    background:
-        radial-gradient(1100px 600px at 15% 10%, rgba(98, 153, 255, 0.35), transparent 55%),
-        radial-gradient(900px 500px at 85% 20%, rgba(194, 109, 255, 0.25), transparent 55%),
-        radial-gradient(900px 600px at 45% 95%, rgba(66, 245, 195, 0.16), transparent 60%),
-        var(--bg);
+
+    font-family:
+        ui-sans-serif, system-ui, -apple-system,
+        Segoe UI, Roboto, Helvetica, Arial;
+
+    background-color: #0c1015;
+
+    background-image:
+        /* Subtle overhead lighting */
+        radial-gradient(ellipse at 50% 0%,
+            rgba(80, 95, 110, 0.12),
+            transparent 65%),
+
+        /* Horizontal engineering grid */
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px,
+            transparent 1px),
+
+        /* Vertical engineering grid */
+        linear-gradient(90deg,
+            rgba(255, 255, 255, 0.025) 1px,
+            transparent 1px);
+
+    background-size:
+        100% 100%,
+        48px 48px,
+        48px 48px;
+
+    background-attachment: fixed;
+
     display: grid;
     place-items: center;
     padding: 22px;
 }
+
 
 .wrap {
     width: min(1100px, 100%);
