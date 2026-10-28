@@ -45,7 +45,7 @@ struct LiveDataView: View {
                     LocationCard()
                     
                     // Vehicle Selection
-                    VehicleInputCard()
+                    VehicleInputCard(make: $inputedMake, model: $inputedModel, year: $inputedYear)
                     
                     Button("Start Recording") {
                         showRecording = true
@@ -56,7 +56,7 @@ struct LiveDataView: View {
                     .background(Color.blue)
                     .foregroundColor(.white)
                     .cornerRadius(12)
-
+                    .disabled(!vehicleIsValid)
                 }
             }
         }
@@ -68,10 +68,18 @@ struct LiveDataView: View {
             UITabBar.appearance().isHidden = true
         }
         .fullScreenCover(isPresented: $showRecording) {
-            RecordingView()
+            RecordingView(vehicleMake: inputedMake, vehicleModel: inputedModel, vehicleYear: inputedYear)
         }
     }
+    
+    private var vehicleIsValid: Bool {
+        guard let y = Int(inputedYear.trimmingCharacters(in: .whitespaces)) else { return false }
+        return !inputedMake.trimmingCharacters(in: .whitespaces).isEmpty
+            && !inputedModel.trimmingCharacters(in: .whitespaces).isEmpty
+            && (1900...2100).contains(y)
+    }
 }
+
 
 struct CustomTextField: View {
     let title: String
@@ -96,10 +104,13 @@ struct CustomTextField: View {
     }
 }
 
+
+// MARK: Cards
+
 struct VehicleInputCard: View {
-    @State private var make: String = ""
-    @State private var model: String = ""
-    @State private var year: String = ""
+    @Binding var make: String
+    @Binding var model: String
+    @Binding var year: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -116,7 +127,6 @@ struct VehicleInputCard: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray6)))
     }
 }
-
 
 struct CarFormView: View {
     @State private var make: String = ""
@@ -298,3 +308,4 @@ struct VehicleSelectionRow: View {
 #Preview {
     LiveDataView()
 }
+

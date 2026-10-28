@@ -5,10 +5,13 @@
 //  Created by Nicholas Sullivan on 2025-11-17.
 //
 
+
+
 import SwiftUI
 import Foundation
 import Charts
 import FirebaseDatabase
+import FirebaseFirestore
 internal import FirebaseAuth
 import CoreLocation
 import MapKit
@@ -23,7 +26,7 @@ struct LiveSensorData: Codable {
     let gyro_z: Double
 }
 
-struct GraphPoint3: Identifiable {
+struct GraphPoint: Identifiable {
     let id = UUID()
     let index: Int
     let x: Double
@@ -88,7 +91,7 @@ final class LiveUploader: NSObject, URLSessionWebSocketDelegate {
             case .failure(let error):
                 print("[LiveUploader] WebSocket receive error: \(error)")
                 self.setConnected(false)
-                return                  // do NOT re-arm after a failure
+                return
             case .success(let message):
                 switch message {
                 case .string(let text):
@@ -104,29 +107,7 @@ final class LiveUploader: NSObject, URLSessionWebSocketDelegate {
             self.listen(on: task, uid: uid)
         }
     }
-    /* Old Handle Text
-    private func handleText(_ text: String, uid: String) {
-        guard let data = text.data(using: .utf8) else { return }
-        do {
-            let sensor = try JSONDecoder().decode(LiveSensorData.self, from: data)
-            let payload: [String: Any] = [
-                "t": ServerValue.timestamp(),
-                "accel_x": sensor.accel_x,
-                "accel_y": sensor.accel_y,
-                "accel_z": sensor.accel_z,
-                "gyro_x": sensor.gyro_x,
-                "gyro_y": sensor.gyro_y,
-                "gyro_z": sensor.gyro_z
-            ]
-            Database.database().reference(withPath: "\(basePath)/\(uid)")
-                .setValue(payload) { error, _ in
-                    if let error { print("[LiveUploader] Failed to write live payload: \(error)") }
-                }
-        } catch {
-            print("[LiveUploader] JSON decode error: \(error) for text: \(text)")
-        }
-    }
-    */
+
     private func handleText(_ text: String, uid: String) {
         let parts = text
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -148,8 +129,6 @@ final class LiveUploader: NSObject, URLSessionWebSocketDelegate {
                 if let error { print("[LiveUploader] Failed to write live payload: \(error)") }
             }
     }
-    
-    // MARK: - URLSessionWebSocketDelegate
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
                     didOpenWithProtocol protocol: String?) {
@@ -164,10 +143,10 @@ final class LiveUploader: NSObject, URLSessionWebSocketDelegate {
     }
 }
 
-// Function for sending sensor data recieved from the websocket to Firebase
+// Function for receving sensor data recieved from the websocket
 @Observable
 final class FirebaseSensorModel {
-    var samples: [GraphPoint3] = []
+    var samples: [GraphPoint] = []
     private var index: Int = 0
     private let maxCount: Int
 
@@ -208,7 +187,7 @@ final class FirebaseSensorModel {
                 return
             }
             // Build and append a new sample
-            let point = GraphPoint3(index: index, x: ax, y: ay, z: az)
+            let point = GraphPoint(index: index, x: ax, y: ay, z: az)
             samples.append(point)
             index += 1
             if samples.count > maxCount {
@@ -326,37 +305,14 @@ final class GPSTelemetry: NSObject, CLLocationManagerDelegate {
     }
 }
 
-// Dummy Fake Sensor Data for Testing sending and reciving data from Firebase
-@Observable
-final class FakeSensorWriter {
-    private var task: Task<Void, Never>?
-
-    func start(path: String = "sensors/current", hz: Double = 10) {
-        stop()
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        let ref = Database.database().reference(withPath: "\(path)/\(uid)")
-
-        task = Task {
-            var phase = 0.0
-            while !Task.isCancelled {
-                phase += 0.2
-                let values: [String: Any] = [
-                    "t": ServerValue.timestamp(),
-                    "accel_x": sin(phase),
-                    "accel_y": cos(phase) - 1,
-                    "accel_z": 0.1 * sin(phase * 3),
-                    "gyro_x": 20 * sin(phase),
-                    "gyro_y": 20 * cos(phase),
-                    "gyro_z": 0
-                ]
-                do { try await ref.setValue(values) }
-                catch { print("Fake write failed: \(error)"); break }
-                try? await Task.sleep(for: .seconds(1 / hz))
-            }
-        }
+struct RecordingService {
+    func save(_ details: RecordingDetails) throws {
+        guard let uid = Auth.auth().currentUser?.uid else { throw RecordingError.notSignedIn }
+        let ref = Firestore.firestore()
+            .collection("Recordings").document(uid)
+            .collection("recording_details").document()
+        try ref.setData(from: details)
     }
-
-    func stop() { task?.cancel(); task = nil }
 }
 
 // Overarching Recording View
@@ -377,6 +333,16 @@ struct RecordingView: View {
     @State private var trail: [CLLocationCoordinate2D] = []
     @State private var showingSettings: Bool = false
     @Environment(\.dismiss) private var dismiss
+    
+    // Properties for databasing
+    let vehicleMake: String
+    let vehicleModel: String
+    let vehicleYear: String
+    @State private var startedAt = Date()
+    @State private var isSaving = false
+    @State private var saveError: String?
+    @State private var pending: RecordingDetails?
+    private let recordingService = RecordingService()
 
     var body: some View {
         NavigationStack {
@@ -407,6 +373,15 @@ struct RecordingView: View {
                 if let loc = newLoc { handleLocation(loc) }
             }
         }
+        .alert("Couldn't save recording", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } })
+        ) {
+            Button("Retry") { stopAndSave() }
+            Button("Discard", role: .destructive) { dismiss() }
+        } message: {
+            Text(saveError ?? "")
+        }
     }
 
     // MARK: - Layout
@@ -416,12 +391,14 @@ struct RecordingView: View {
         if size.width > size.height {
             LandscapeLayout(kph: telemetry.kph, direction: telemetry.direction,
                             isUploading: $isUploading, isFakeSensorData: $isFakeSensorData,
-                            cameraPosition: $cameraPosition, trail: $trail)
+                            cameraPosition: $cameraPosition, trail: $trail,
+                            isSaving: isSaving, onStop: stopAndSave)
         } else {
             PortraitLayout(kph: telemetry.kph, direction: telemetry.direction,
                            isConnected: $isConnected, isUploading: $isUploading,
                            isFakeSensorData: $isFakeSensorData,
-                           cameraPosition: $cameraPosition, trail: $trail)
+                           cameraPosition: $cameraPosition, trail: $trail,
+                           isSaving: isSaving, onStop: stopAndSave)
         }
     }
 
@@ -447,6 +424,7 @@ struct RecordingView: View {
     private func handleAppear() {
         OrientationManager.set(.allButUpsideDown)
         telemetry.start()
+        startedAt = Date()
         uploader.onConnectionChange = { connected in isConnected = connected }
         if isUploading { uploader.start() }
         if isFakeSensorData { fakeSensorData.start() }
@@ -485,6 +463,58 @@ struct RecordingView: View {
         let t: Double = min(max(kph / 120.0, 0.0), 1.0)
         return minSpan + (maxSpan - minSpan) * t
     }
+    
+    private func stopAndSave() {
+        guard !isSaving else { return }
+        isSaving = true
+        saveError = nil
+
+        // Freeze everything at the moment of the tap
+        if pending == nil {
+            telemetry.stop()
+            uploader.stop()
+            fakeSensorData.stop()
+            pending = makeDetails()
+        }
+
+        Task {
+            guard var details = pending else { return }
+            if details.locationName == nil {
+                details.locationName = await placeName(for: telemetry.latestLocation)
+                pending = details
+            }
+            do {
+                try recordingService.save(details)
+                dismiss()
+            } catch {
+                isSaving = false
+                saveError = error.localizedDescription
+            }
+        }
+    }
+
+    private func makeDetails() -> RecordingDetails {
+        let loc = telemetry.latestLocation
+        return RecordingDetails(
+            id: nil,
+            vehicle_make: vehicleMake.trimmingCharacters(in: .whitespaces),
+            vehicle_model: vehicleModel.trimmingCharacters(in: .whitespaces),
+            vehicle_year: Int(vehicleYear.trimmingCharacters(in: .whitespaces)) ?? 0,
+            location: loc.map { GeoPoint(latitude: $0.coordinate.latitude,
+                                         longitude: $0.coordinate.longitude) },
+            locationName: nil,
+            duration: Date().timeIntervalSince(startedAt),
+            fileLink: nil,
+            recordedAt: nil          // filled in by the server, see the note below
+        )
+    }
+
+    private func placeName(for location: CLLocation?) async -> String? {
+        guard let location,
+              let p = try? await CLGeocoder().reverseGeocodeLocation(location).first else { return nil }
+        let parts = [p.locality, p.administrativeArea].compactMap { $0 }
+        return parts.isEmpty ? p.name : parts.joined(separator: ", ")
+    }
 }
  
 // MARK: - Landscape
@@ -501,7 +531,10 @@ struct LandscapeLayout: View {
     // Additional variables for Mapping with camera positon and the drawn trail.
     @Binding var cameraPosition: MapCameraPosition
     @Binding var trail: [CLLocationCoordinate2D]
-    @Environment(\.dismiss) private var dismiss
+   
+    // Database Variables
+    let isSaving: Bool
+    let onStop: () -> Void
 
     var body: some View {
         VStack {
@@ -541,9 +574,12 @@ struct LandscapeLayout: View {
             .padding()
 
             // Dismisses Recording View screen on press of "Stop Recording" button.
-            Button("Stop Recording") {
-                dismiss()
+            Button {
+                onStop()
+            } label: {
+                if isSaving { ProgressView().tint(.white) } else { Text("Stop Recording") }
             }
+            .disabled(isSaving)
             .font(.headline)
             .frame(maxWidth: .infinity)
             .padding()
@@ -567,7 +603,10 @@ struct PortraitLayout: View {
     // Additional variables for Mapping with camera positon and the drawn trail.
     @Binding var cameraPosition: MapCameraPosition
     @Binding var trail: [CLLocationCoordinate2D]
-    @Environment(\.dismiss) private var dismiss
+    
+    // Database Variables
+    let isSaving: Bool
+    let onStop: () -> Void
 
     var body: some View {
         VStack(spacing: 12) {
@@ -603,17 +642,23 @@ struct PortraitLayout: View {
             }
             .padding(.horizontal)
 
-            Button("Stop Recording") { dismiss() }
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.red)
-                .foregroundColor(.white)
-                .cornerRadius(10)
+            Button {
+                onStop()
+            } label: {
+                if isSaving { ProgressView().tint(.white) } else { Text("Stop Recording") }
+            }
+            .disabled(isSaving)
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.red)
+            .foregroundColor(.white)
+            .cornerRadius(10)
         }
         .padding(.vertical)
     }
 }
+
 
 // View for settings screen in Recording View
 private struct SettingsSheet: View {
@@ -759,6 +804,41 @@ struct BreathingDot: View {
     }
 }
 
+// Dummy Fake Sensor Data for Testing sending and reciving data from Firebase
+@Observable
+final class FakeSensorWriter {
+    private var task: Task<Void, Never>?
+
+    func start(path: String = "sensors/current", hz: Double = 10) {
+        stop()
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let ref = Database.database().reference(withPath: "\(path)/\(uid)")
+
+        task = Task {
+            var phase = 0.0
+            while !Task.isCancelled {
+                phase += 0.2
+                let values: [String: Any] = [
+                    "t": ServerValue.timestamp(),
+                    "accel_x": sin(phase),
+                    "accel_y": cos(phase) - 1,
+                    "accel_z": 0.1 * sin(phase * 3),
+                    "gyro_x": 20 * sin(phase),
+                    "gyro_y": 20 * cos(phase),
+                    "gyro_z": 0
+                ]
+                do { try await ref.setValue(values) }
+                catch { print("Fake write failed: \(error)"); break }
+                try? await Task.sleep(for: .seconds(1 / hz))
+            }
+        }
+    }
+
+    func stop() { task?.cancel(); task = nil }
+}
+
+/*
 #Preview {
     RecordingView()
 }
+*/

@@ -5,6 +5,8 @@
 //  Created by Marco Siciliano on 2026-10-03.
 //
 
+/*
+
 import SwiftUI
 import Charts
 
@@ -16,7 +18,7 @@ struct SensorData: Codable {
     let gyro_y: Double
     let gyro_z: Double
 }
-
+/*
 struct GraphPoint: Identifiable {
     let id = UUID()
     let index: Int
@@ -24,7 +26,7 @@ struct GraphPoint: Identifiable {
     let y: Double
     let z: Double
 }
-
+*/
 struct SocketView: View {
 
     @State private var websocketValue: String = "Waiting for data..."
@@ -250,3 +252,5 @@ struct SocketView: View {
 #Preview {
     SocketView()
 }
+
+*/
