@@ -14,7 +14,7 @@ class CsvLogger:
         self._writer = None
 
     def open(self, filepath: Optional[str] = None) -> str:
-        """Open the CSV log file for writing."""
+        """Open a new or existing CSV log file for appending."""
         os.makedirs(self.log_dir, exist_ok=True)
 
         if filepath is None:
@@ -22,12 +22,10 @@ class CsvLogger:
                 self.log_dir,
                 f"sensor_output_with_timestamps_{time.strftime('%Y%m%d-%H%M%S')}.csv",
             )
+        elif not os.path.isabs(filepath):
+            filepath = os.path.join(self.log_dir, filepath)
 
         self.filepath = filepath
-
-        # Remove existing file if any file exists with the same name
-        if os.path.exists(filepath):
-            os.remove(filepath)
 
         self._f = open(filepath, mode="a", newline="")
         self._writer = csv.writer(self._f)
@@ -36,7 +34,7 @@ class CsvLogger:
             self._writer.writerow(self.header)
             self._f.flush()
 
-        print(f"Logging CSV rows to {filepath} (Ctrl+C to stop)...")
+        print(f"Logging CSV rows to {filepath}...")
         return filepath
 
     def write(self, row: List[Any]) -> None:
@@ -45,6 +43,10 @@ class CsvLogger:
             raise RuntimeError("CsvLogger is not open()")
         self._writer.writerow(row)
         self._f.flush()
+
+    def is_open(self) -> bool:
+        """Return True when a CSV file is currently open for logging."""
+        return self._f is not None and not self._f.closed
 
     def close(self) -> None:
         """Close the CSV log file."""

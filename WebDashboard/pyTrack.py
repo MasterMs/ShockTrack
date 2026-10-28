@@ -8,7 +8,7 @@ from core.ws_hub import WebSocketHub
 
 
 # ----- CONFIG -----
-PORT = "COM3"
+PORT = "COM4"
 BAUD = 115200
 RETRY_SECONDS = 2
 LOG_DIR = "logs"
