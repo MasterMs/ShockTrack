@@ -78,6 +78,30 @@ class ShockTrackAPI:
                 # Remove from connection registry
                 self.connections.pop(client_id, None)
 
+        # Dedicated ML stream; raw /ws data stays backward compatible.
+        @self.app.websocket("/ws/predictions")
+        async def prediction_ws(ws: WebSocket):
+            await ws.accept()
+            await self.serial_mgr.prediction_hub.add(ws)
+            try:
+                predictor = self.serial_mgr.predictor
+                if predictor is not None and predictor.latest_prediction is not None:
+                    await ws.send_json(predictor.latest_prediction)
+                while True:
+                    await ws.receive_text()
+            except WebSocketDisconnect:
+                pass
+            finally:
+                await self.serial_mgr.prediction_hub.remove(ws)
+
+        @self.app.get("/prediction")
+        async def latest_prediction():
+            predictor = self.serial_mgr.predictor
+            return JSONResponse({
+                "enabled": predictor is not None,
+                "prediction": predictor.latest_prediction if predictor is not None else None,
+            })
+
         # List active WebSocket connections
         @self.app.get("/connections")
         async def get_connections():
