@@ -1,10 +1,13 @@
 import asyncio
+import json
+import logging
 from typing import Optional
 
 import serial
 
 from .csv_logger import CsvLogger
 from .parser import LineParser
+from .prediction_service import PredictionService
 from .ws_hub import WebSocketHub
 
 
@@ -17,6 +20,8 @@ class SerialManager:
         logger: CsvLogger,
         parser: LineParser,
         ws_hub: WebSocketHub,
+        predictor: Optional[PredictionService] = None,
+        prediction_hub: Optional[WebSocketHub] = None,
     ):
         self.port = port
         self.baud = baud
@@ -25,12 +30,15 @@ class SerialManager:
         self.logger = logger
         self.parser = parser
         self.ws_hub = ws_hub
+        self.predictor = predictor
+        self.prediction_hub = prediction_hub or WebSocketHub()
 
         self._ser: Optional[serial.Serial] = None
         self._ser_lock = asyncio.Lock()
         self._csv_lock = asyncio.Lock()
 
         self._task: Optional[asyncio.Task] = None
+        self._prediction_task: Optional[asyncio.Task] = None
         self._stop = False
 
     async def _open_serial_with_retry(self) -> serial.Serial:
@@ -58,6 +66,12 @@ class SerialManager:
                 except Exception:
                     pass
             self._ser = None
+
+        if self._prediction_task is not None and not self._prediction_task.done():
+            self._prediction_task.cancel()
+        self._prediction_task = None
+        if self.predictor is not None:
+            self.predictor.reset()
 
     async def start(self) -> None:
         if self._task is None or self._task.done():
@@ -101,6 +115,16 @@ class SerialManager:
         async with self._csv_lock:
             return self.logger.is_open()
 
+    async def _infer_and_publish(self, window, timestamp: str) -> None:
+        try:
+            result = await asyncio.to_thread(self.predictor.predict_window, window, timestamp)
+            self.predictor.publish(result)
+            await self.prediction_hub.broadcast_text(json.dumps(result))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logging.exception("ShockTrack live prediction failed")
+
     async def _run(self) -> None:
         try:
             await self._open_serial_with_retry()
@@ -135,6 +159,16 @@ class SerialManager:
 
                 # Broadcast to websocket clients regardless of CSV recording state
                 await self.ws_hub.broadcast_text(parsed.to_ws_text())
+
+                # ML is independent of CSV recording and never blocks serial reads.
+                if self.predictor is not None and parsed.values is not None:
+                    window = self.predictor.add_sample(parsed.values)
+                    if window is not None and (
+                        self._prediction_task is None or self._prediction_task.done()
+                    ):
+                        self._prediction_task = asyncio.create_task(
+                            self._infer_and_publish(window, parsed.timestamp)
+                        )
 
                 await asyncio.sleep(0)
 
