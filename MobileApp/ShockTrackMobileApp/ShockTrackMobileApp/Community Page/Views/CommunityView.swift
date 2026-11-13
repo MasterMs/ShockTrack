@@ -199,7 +199,7 @@ struct CommunityPostCard: View {
                         .resizable()
                         .scaledToFill()
                         .frame(height: 170)
-                        .frame(maxWidth: 370)
+                        .frame(maxWidth: 400)
                         .clipped()
                         .cornerRadius(8)
                     Text(post.title)

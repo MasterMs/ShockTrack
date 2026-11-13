@@ -5,8 +5,6 @@
 //  Created by Nicholas Sullivan on 2025-11-17.
 //
 
-
-
 import SwiftUI
 import Foundation
 import Charts
@@ -33,7 +31,6 @@ struct GraphPoint: Identifiable {
     let y: Double
     let z: Double
 }
-
 
 // Function for uploading suspension data taken in from the websocket and sending it to Firebase.
 @Observable
@@ -81,7 +78,7 @@ final class LiveUploader: NSObject, URLSessionWebSocketDelegate {
         isConnected = value
         onConnectionChange?(value)
     }
-
+    
     private func listen(on task: URLSessionWebSocketTask, uid: String) {
         task.receive { [weak self] result in
             // Ignore callbacks from a task that has been replaced or stopped
@@ -321,11 +318,12 @@ struct RecordingView: View {
     // Variable for GPS telemetry
     @State private var telemetry = GPSTelemetry()
     // Variable for websocket data uploaded
-    @State private var uploader = LiveUploader(socketURLString: "ws://192.168.2.12:8000/ws")
+    // @State private var uploader = LiveUploader(socketURLString: "ws://192.168.2.12:8000/ws")
+    @State private var uploader = LiveUploader(socketURLString: "ws://127.0.0.1:8000/ws")
     // Variable for Testing Sensor Data
     @State private var fakeSensorData = FakeSensorWriter()
     // States of uploading, fake sensor data and websocket connection.
-    @State private var isUploading: Bool = false
+    @State private var isUploading: Bool = true
     @State private var isFakeSensorData: Bool = false
     @State private var isConnected: Bool = false
     // Settings for Map view
@@ -333,6 +331,9 @@ struct RecordingView: View {
     @State private var trail: [CLLocationCoordinate2D] = []
     @State private var showingSettings: Bool = false
     @Environment(\.dismiss) private var dismiss
+    
+    // For streaming to viewing user/devices
+    @State private var livePublisher = LivePublisher()
     
     // Properties for databasing
     let vehicleMake: String
@@ -343,6 +344,13 @@ struct RecordingView: View {
     @State private var saveError: String?
     @State private var pending: RecordingDetails?
     private let recordingService = RecordingService()
+    
+    // Websocket Properties
+    @State private var isStarting = true
+    @State private var startError: String?
+    // filepath from /startCSV
+    @State private var csvFilePath: String?
+    @State private var csvStopped = false
 
     var body: some View {
         NavigationStack {
@@ -366,6 +374,7 @@ struct RecordingView: View {
                 )
             }
             .onAppear { handleAppear() }
+            .task { await beginRecording() }
             .onDisappear { handleDisappear() }
             .onChange(of: isUploading) { _, on in setUploading(on) }
             .onChange(of: isFakeSensorData) { _, on in setFakeSensor(on) }
@@ -373,14 +382,14 @@ struct RecordingView: View {
                 if let loc = newLoc { handleLocation(loc) }
             }
         }
-        .alert("Couldn't save recording", isPresented: Binding(
-            get: { saveError != nil },
-            set: { if !$0 { saveError = nil } })
+        .alert("Couldn't start recording", isPresented: Binding(
+            get: { startError != nil },
+            set: { if !$0 { startError = nil } })
         ) {
-            Button("Retry") { stopAndSave() }
-            Button("Discard", role: .destructive) { dismiss() }
+            Button("Retry") { Task { await beginRecording() } }
+            Button("Cancel", role: .cancel) { dismiss() }
         } message: {
-            Text(saveError ?? "")
+            Text(startError ?? "")
         }
     }
 
@@ -424,9 +433,8 @@ struct RecordingView: View {
     private func handleAppear() {
         OrientationManager.set(.allButUpsideDown)
         telemetry.start()
-        startedAt = Date()
-        uploader.onConnectionChange = { connected in isConnected = connected }
         if isUploading { uploader.start() }
+        uploader.onConnectionChange = { connected in isConnected = connected }
         if isFakeSensorData { fakeSensorData.start() }
     }
 
@@ -435,16 +443,39 @@ struct RecordingView: View {
         telemetry.stop()
         uploader.stop()
         fakeSensorData.stop()
+        livePublisher.stop()
     }
 
+    private var liveTitle: String { "\(vehicleYear) \(vehicleMake) \(vehicleModel)" }
+
     private func setUploading(_ on: Bool) {
-        if on { uploader.start() } else { uploader.stop() }
+        if on {
+            uploader.start()
+            livePublisher.start(title: liveTitle)
+        } else {
+            uploader.stop()
+            livePublisher.stop()
+        }
     }
 
     private func setFakeSensor(_ on: Bool) {
         if on { fakeSensorData.start() } else { fakeSensorData.stop() }
     }
 
+    private func beginRecording() async {
+        isStarting = true
+        startError = nil
+        guard let reply = await SensorServerClient.startCSV(), reply.recording else {
+            isStarting = false
+            startError = "Couldn't start recording on the sensor server. Check that it's running and reachable."
+            return
+        }
+        csvFilePath = reply.filepath
+        startedAt = Date()
+        isStarting = false
+        if isUploading { livePublisher.start(title: liveTitle) }
+    }
+    
     // MARK: - GPS
 
     private func handleLocation(_ loc: CLLocation) {
@@ -454,9 +485,11 @@ struct RecordingView: View {
         let spanVal = zoomSpan(forKPH: Double(telemetry.kph))
         let span = MKCoordinateSpan(latitudeDelta: spanVal, longitudeDelta: spanVal)
         cameraPosition = .region(MKCoordinateRegion(center: loc.coordinate, span: span))
+        livePublisher.publish(location: loc, kph: telemetry.kph, direction: telemetry.direction)
     }
 
-    /// Maps 0...120 km/h to a 0.003...0.02 degree span.
+    // Camera Zoom in and out
+    // Maps 0...120 km/h to a 0.003...0.02 degree span.
     private func zoomSpan(forKPH kph: Double) -> Double {
         let minSpan: Double = 0.003
         let maxSpan: Double = 0.02
@@ -472,17 +505,27 @@ struct RecordingView: View {
         // Freeze everything at the moment of the tap
         if pending == nil {
             telemetry.stop()
-            uploader.stop()
+            uploader.stop()                 // back in the freeze block
             fakeSensorData.stop()
+            livePublisher.stop()
             pending = makeDetails()
         }
 
         Task {
             guard var details = pending else { return }
+
+            if !csvStopped, let reply = await SensorServerClient.stopCSV() {
+                details.filePath = reply.filepath ?? csvFilePath
+                details.fileLink = reply.public_url
+                pending = details
+                csvStopped = true
+            }
+
             if details.locationName == nil {
                 details.locationName = await placeName(for: telemetry.latestLocation)
                 pending = details
             }
+
             do {
                 try recordingService.save(details)
                 dismiss()
@@ -504,8 +547,9 @@ struct RecordingView: View {
                                          longitude: $0.coordinate.longitude) },
             locationName: nil,
             duration: Date().timeIntervalSince(startedAt),
+            recordedAt: nil,          // Filled in by the server
             fileLink: nil,
-            recordedAt: nil          // filled in by the server, see the note below
+            
         )
     }
 
@@ -535,6 +579,10 @@ struct LandscapeLayout: View {
     // Database Variables
     let isSaving: Bool
     let onStop: () -> Void
+    
+    // For Viewing Live Streaming data
+    var remoteCoordinate: CLLocationCoordinate2D? = nil
+    var stopTitle: String = "Stop Recording"
 
     var body: some View {
         VStack {
@@ -548,7 +596,16 @@ struct LandscapeLayout: View {
                 // Right: Map with overlays
                 ZStack(alignment: .bottom) {
                     Map(position: $cameraPosition) {
-                        UserAnnotation()
+                        if let remote = remoteCoordinate {
+                            Annotation("", coordinate: remote) {
+                                Circle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: 16, height: 16)
+                                    .overlay(Circle().stroke(.white, lineWidth: 2))
+                            }
+                        } else {
+                            UserAnnotation()
+                        }
                         // Trail polyline
                         MapPolyline(coordinates: trail)
                             .stroke(Color.accentColor, lineWidth: 3)
@@ -577,7 +634,7 @@ struct LandscapeLayout: View {
             Button {
                 onStop()
             } label: {
-                if isSaving { ProgressView().tint(.white) } else { Text("Stop Recording") }
+                if isSaving { ProgressView().tint(.white) } else { Text(stopTitle) }
             }
             .disabled(isSaving)
             .font(.headline)
@@ -607,6 +664,10 @@ struct PortraitLayout: View {
     // Database Variables
     let isSaving: Bool
     let onStop: () -> Void
+    
+    // For Viewing Live Streaming data
+    var remoteCoordinate: CLLocationCoordinate2D? = nil
+    var stopTitle: String = "Stop Recording"
 
     var body: some View {
         VStack(spacing: 12) {
@@ -619,7 +680,16 @@ struct PortraitLayout: View {
             // Bottom: Map with overlays
             ZStack(alignment: .bottom) {
                 Map(position: $cameraPosition) {
-                    UserAnnotation()
+                    if let remote = remoteCoordinate {
+                        Annotation("", coordinate: remote) {
+                            Circle()
+                                .fill(Color.accentColor)
+                                .frame(width: 16, height: 16)
+                                .overlay(Circle().stroke(.white, lineWidth: 2))
+                        }
+                    } else {
+                        UserAnnotation()
+                    }
                     // Trail polyline
                     MapPolyline(coordinates: trail)
                         .stroke(Color.accentColor, lineWidth: 3)
@@ -645,7 +715,7 @@ struct PortraitLayout: View {
             Button {
                 onStop()
             } label: {
-                if isSaving { ProgressView().tint(.white) } else { Text("Stop Recording") }
+                if isSaving { ProgressView().tint(.white) } else { Text(stopTitle) }
             }
             .disabled(isSaving)
             .font(.headline)

@@ -8,6 +8,8 @@
 import SwiftUI
 import CoreLocation
 import MapKit
+import FirebaseDatabaseInternal
+internal import FirebaseAuth
 
 struct LiveDataView: View {
     @State private var inputedMake: String = "Mazda"
@@ -15,6 +17,10 @@ struct LiveDataView: View {
     @State private var inputedYear: String = "1991"
     let vehicles = ["RX7 FC", "240SX", "350z"]
     @State private var showRecording = false
+    
+    // For viewing live recording
+    @State private var monitor = LiveRecordingMonitor()
+    @State private var showViewer = false
 
     var body: some View {
         NavigationView {
@@ -26,15 +32,23 @@ struct LiveDataView: View {
                         .bold()
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    Text("Resume Last Recording")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    
-                    // Resume Last Recording
-                    Button {
-                        showRecording = true
-                    } label: {
-                        ResumeRecordingCard()
+                    // View live recording
+                    if let title = monitor.activeTitle {
+                        Button { showViewer = true } label: {
+                            HStack {
+                                Circle().fill(.red).frame(width: 10, height: 10)
+                                VStack(alignment: .leading) {
+                                    Text("Live now").font(.headline)
+                                    Text(title).font(.subheadline).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text("Watch").bold()
+                                Image(systemName: "chevron.right")
+                            }
+                            .padding()
+                            .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray6)))
+                        }
+                        .buttonStyle(.plain)
                     }
                     
                     Text("Start New Recording")
@@ -56,16 +70,19 @@ struct LiveDataView: View {
                     .background(Color.blue)
                     .foregroundColor(.white)
                     .cornerRadius(12)
-                    .disabled(!vehicleIsValid)
+                    //.disabled(!vehicleIsValid)
                 }
             }
+            .fullScreenCover(isPresented: $showViewer) { LiveViewerView() }
         }
         .padding(.horizontal)
         .onAppear {
             UITabBar.appearance().isHidden = false
+            monitor.start()
         }
         .onDisappear {
             UITabBar.appearance().isHidden = true
+            monitor.stop()
         }
         .fullScreenCover(isPresented: $showRecording) {
             RecordingView(vehicleMake: inputedMake, vehicleModel: inputedModel, vehicleYear: inputedYear)
@@ -154,6 +171,39 @@ struct CarFormView: View {
     }
 }
 
+@Observable
+final class LiveRecordingMonitor {
+    // Non-nil when ANOTHER device on this account is recording live
+    private(set) var activeTitle: String?
+
+    @ObservationIgnored private var ref: DatabaseReference?
+    @ObservationIgnored private var handle: DatabaseHandle?
+
+    func start() {
+        stop()
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let ref = Database.database().reference(withPath: "live/\(uid)/status")
+        self.ref = ref
+        handle = ref.observe(.value) { [weak self] snap in
+            guard let d = snap.value as? [String: Any], d["active"] as? Bool == true else {
+                self?.activeTitle = nil
+                return
+            }
+            // Don't offer to watch a recording that this same phone is making
+            let thisDevice = UIDevice.current.identifierForVendor?.uuidString
+            self?.activeTitle = (d["device"] as? String) == thisDevice
+                ? nil
+                : (d["title"] as? String ?? "Live recording")
+        }
+    }
+
+    func stop() {
+        if let ref, let handle { ref.removeObserver(withHandle: handle) }
+        ref = nil
+        handle = nil
+    }
+}
+
 struct ResumeRecordingCard: View {
     var body: some View {
         HStack(spacing: 0) {
@@ -192,7 +242,7 @@ struct LocationCard: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text("Location")
+            Text("Current Location")
                 .font(.headline)
 
             Map(position: $position) {
@@ -239,7 +289,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.distanceFilter = 10          // meters; avoids constant updates
+        manager.distanceFilter = 10
         authorization = manager.authorizationStatus
     }
 

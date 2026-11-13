@@ -17,10 +17,12 @@ class ShockTrackAPI:
     def __init__(self, firebase_user: str, serial_mgr: SerialManager):
         self.serial_mgr = serial_mgr
         self.firebase_user = firebase_user
+        
         self.firebase_helper = FirebaseHelper(
             bucket_name="shocktrack_motion_data",
             credentials_path="C:/Users/Marco/Documents/ShockTrack/git/ShockTrack/WebDashboard/shocktrack-512317-c8a483490e28.json"
         )
+        
         self.app = FastAPI(lifespan=self._lifespan)
 
         # Track active WebSocket connections

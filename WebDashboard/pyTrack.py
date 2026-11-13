@@ -8,6 +8,7 @@ from core.ws_hub import WebSocketHub
 
 
 # ----- CONFIG -----
+#PORT = "/dev/cu.usbserial-210" # For Mac
 PORT = "COM4"
 BAUD = 115200
 RETRY_SECONDS = 2
@@ -40,6 +41,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "pyTrack:app",
         host="192.168.2.12",
+        # host="127.0.0.1", # For Mac
         port=8000,
         log_level="info",
         reload=True,

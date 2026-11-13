@@ -29,7 +29,7 @@ struct HomeView: View {
                     Button {
                         selectedTab = 1 // Live Data Tab
                     } label: {
-                        CardView(title: "RX7", subtitle: "Live Data", date: "Thursday, Oct 2nd, 2025", image: "RX7")
+                        CardView(title: "Start New Recording", subtitle: "Recording", date: getCustomFormattedDate(from: Date()), image: "Recording")
                     }
                     
                     // Database Section
@@ -53,20 +53,6 @@ struct HomeView: View {
                     ForEach(vm.posts) { post in
                         CommunityPostCard(post: post)
                     }
-                    /*
-                    VStack(spacing: 20) {
-                        Button {
-                            selectedTab = 2 // Community tab
-                        } label: {
-                            PostView(title: "Drift 240SX Setup", views: "6473", image: "240SX")
-                        }
-                        Button {
-                            selectedTab = 2 // Community tab
-                        } label: {
-                            PostView(title: "RX7 Drift Clip", views: "2483", image: "RX7")
-                        }
-                    }
-                    */
                 }
                 .padding(.horizontal)
             }
@@ -94,6 +80,33 @@ struct HomeView: View {
 }
 
 // MARK: - Components
+
+func getCustomFormattedDate(from date: Date = .now) -> String {
+    let calendar = Calendar.current
+    let day = calendar.component(.day, from: date)
+    
+    // Determine the correct ordinal suffix (st, nd, rd, th)
+    let suffix: String
+    switch day {
+    case 1, 21, 31: suffix = "st"
+    case 2, 22:     suffix = "nd"
+    case 3, 23:     suffix = "rd"
+    default:        suffix = "th"
+    }
+    
+    // Format the Day of Week and Month (e.g., "Saturday, December ")
+    let dateEncoding = DateFormatter()
+    dateEncoding.dateFormat = "EEEE, MMMM "
+    let monthAndDay = dateEncoding.string(from: date)
+    
+    // Format the Time in lowercase (e.g., "2:48pm")
+    let timeEncoding = DateFormatter()
+    timeEncoding.dateFormat = "h:mma"
+    let timeString = timeEncoding.string(from: date).lowercased()
+    
+    // Combine them all together
+    return "\(monthAndDay)\(day)\(suffix), \(timeString)"
+}
 
 struct SectionHeader: View {
     let title: String

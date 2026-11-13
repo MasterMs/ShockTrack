@@ -16,6 +16,7 @@ struct RecordingDetails: Identifiable, Codable {
     var location: GeoPoint? // Raw GPS coordinates
     var locationName: String? // Name based on coordinates
     var duration: Double?
-    var fileLink: String?
     @ServerTimestamp var recordedAt: Date?  // Timestamp
+    var fileLink: String?   // public_url
+    var filePath: String?   // filepath
 }
