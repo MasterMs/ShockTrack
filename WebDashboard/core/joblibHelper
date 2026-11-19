@@ -1,0 +1,81 @@
+from pathlib import Path
+
+import joblib
+import numpy as np
+import pandas as pd
+
+
+class JoblibHelper:
+    # Used when the model was trained without column names.
+    # This order must match the training data.
+    FEATURES = (
+        "acel_x", "acel_y", "acel_z",
+        "gyro_x", "gyro_y", "gyro_z",
+    )
+
+    def __init__(self, model_path: str | Path):
+        self.model = joblib.load(Path(model_path))
+
+        if not callable(getattr(self.model, "predict", None)):
+            raise TypeError("The joblib file must contain a fitted model or pipeline.")
+
+        self.feature_names = getattr(self.model, "feature_names_in_", None)
+
+        # Also accept the accel_* spelling if used during training.
+        if self.feature_names is not None:
+            normalized = [
+                str(name).replace("accel_", "acel_")
+                for name in self.feature_names
+            ]
+
+            if (
+                len(normalized) != len(self.FEATURES)
+                or set(normalized) != set(self.FEATURES)
+            ):
+                raise ValueError(
+                    "The model must accept the six raw sensor features."
+                )
+
+            self.input_order = normalized
+        else:
+            self.input_order = list(self.FEATURES)
+
+        feature_count = getattr(self.model, "n_features_in_", None)
+        if feature_count is not None and feature_count != len(self.FEATURES):
+            raise ValueError("The model must accept exactly six features.")
+
+    def predict(self, sample: dict[str, float]) -> dict:
+        row = np.array(
+            [[sample[name] for name in self.input_order]],
+            dtype=float,
+        )
+
+        if not np.isfinite(row).all():
+            raise ValueError("Sensor values must be finite numbers.")
+
+        # Preserve training column names and order when available.
+        features = (
+            pd.DataFrame(row, columns=self.feature_names)
+            if self.feature_names is not None
+            else row
+        )
+
+        prediction = self.model.predict(features)[0]
+
+        result = {
+            "prediction": (
+                prediction.item()
+                if isinstance(prediction, np.generic)
+                else prediction
+            ),
+            "confidence": None,
+        }
+
+        if callable(getattr(self.model, "predict_proba", None)):
+            probabilities = self.model.predict_proba(features)[0]
+            classes = list(self.model.classes_)
+            result["confidence"] = float(
+                probabilities[classes.index(prediction)]
+            )
+
+        return result
