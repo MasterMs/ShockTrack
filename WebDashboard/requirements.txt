@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pydantic>=2,<3
+pyserial
+firebase-admin
+joblib
+numpy
+pandas
+scikit-learn
