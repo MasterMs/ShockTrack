@@ -7,6 +7,10 @@ from .csv_logger import CsvLogger
 from .parser import LineParser
 from .ws_hub import WebSocketHub
 
+import json
+import logging
+import math
+
 
 class SerialManager:
     def __init__(
@@ -103,45 +107,83 @@ class SerialManager:
             return self.logger.is_open()
 
     async def _run(self) -> None:
+        log = logging.getLogger(__name__)
+
         try:
             await self._open_serial_with_retry()
-        except asyncio.CancelledError:
-            return
+            self.predictor.reset()
 
-        try:
             while not self._stop:
                 async with self._ser_lock:
-                    local_ser = self._ser
+                    connection = self._ser
 
-                if local_ser is None or not getattr(local_ser, "is_open", False):
+                if connection is None or not connection.is_open:
                     await asyncio.sleep(0.5)
                     continue
 
                 try:
-                    raw = local_ser.readline().decode("utf-8", errors="ignore").strip()
-                except Exception as e:
-                    print("Serial read error:", e)
-                    raw = ""
+                    raw_bytes = await asyncio.to_thread(connection.readline)
+                    raw = raw_bytes.decode(
+                        "utf-8", errors="ignore"
+                    ).strip()
+
+                except asyncio.CancelledError:
+                    raise
+
+                except Exception:
+                    log.exception("Serial read failed")
+                    self.predictor.reset()
+                    await asyncio.sleep(0.1)
+                    continue
 
                 if not raw:
-                    await asyncio.sleep(0)
                     continue
 
                 parsed = self.parser.parse(raw)
 
-                # Log to CSV only while recording is enabled
+                # Continue recording the original sensor data.
                 async with self._csv_lock:
                     if self.logger.is_open():
                         self.logger.write(parsed.to_csv_row())
 
-                # Broadcast to websocket clients regardless of CSV recording state
-                await self.ws_hub.broadcast_text(parsed.to_ws_text())
+                # Only valid sensor rows enter the prediction window.
+                if (
+                    not parsed.is_valid
+                    or not all(math.isfinite(v) for v in parsed.values)
+                ):
+                    self.predictor.reset()
+                    continue
 
-                await asyncio.sleep(0)
+                sample = dict(
+                    zip(self.predictor.FEATURES, parsed.values)
+                )
+
+                try:
+                    result = await asyncio.to_thread(
+                        self.predictor.predict,
+                        sample,
+                    )
+                    prediction = result["prediction"]
+
+                except Exception:
+                    log.exception("Prediction failed")
+                    self.predictor.reset()
+                    prediction = None
+
+                # Broadcast sensor values and prediction together.
+                payload = {
+                    "timestamp": parsed.timestamp,
+                    **sample,
+                    "prediction": prediction,
+                }
+
+                await self.ws_hub.broadcast_text(
+                    json.dumps(payload, allow_nan=False)
+                )
 
         except asyncio.CancelledError:
             raise
+
         finally:
             await self.force_close()
             await self.stop_csv()
-            print("Serial port closed.")
