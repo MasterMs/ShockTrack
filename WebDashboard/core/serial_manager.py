@@ -17,6 +17,7 @@ class SerialManager:
         logger: CsvLogger,
         parser: LineParser,
         ws_hub: WebSocketHub,
+        predictor,
     ):
         self.port = port
         self.baud = baud
@@ -25,11 +26,11 @@ class SerialManager:
         self.logger = logger
         self.parser = parser
         self.ws_hub = ws_hub
+        self.predictor = predictor
 
         self._ser: Optional[serial.Serial] = None
         self._ser_lock = asyncio.Lock()
         self._csv_lock = asyncio.Lock()
-
         self._task: Optional[asyncio.Task] = None
         self._stop = False
 
