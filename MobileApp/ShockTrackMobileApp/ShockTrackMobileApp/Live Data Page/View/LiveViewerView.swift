@@ -23,7 +23,8 @@ struct LiveViewerView: View {
                     .frame(width: proxy.size.width, height: proxy.size.height)
             }
             .toolbar(.hidden, for: .tabBar)
-            .navigationTitle(viewer.title ?? "Live Recording")
+            //.navigationTitle(viewer.title ?? "Live Recording")
+            .navigationTitle("Viewing Live Recording")
             .toolbarColorScheme(.dark, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

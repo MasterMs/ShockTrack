@@ -15,7 +15,7 @@ struct LiveDataView: View {
     @State private var inputedMake: String = "Mazda"
     @State private var inputedModel: String = "RX7 FC"
     @State private var inputedYear: String = "1991"
-    let vehicles = ["RX7 FC", "240SX", "350z"]
+    // let vehicles = ["RX7 FC", "240SX", "350z"]
     @State private var showRecording = false
     
     // For viewing live recording
@@ -38,7 +38,7 @@ struct LiveDataView: View {
                             HStack {
                                 Circle().fill(.red).frame(width: 10, height: 10)
                                 VStack(alignment: .leading) {
-                                    Text("Live now").font(.headline)
+                                    Text("Live Now").font(.headline)
                                     Text(title).font(.subheadline).foregroundStyle(.secondary)
                                 }
                                 Spacer()
@@ -144,7 +144,7 @@ struct VehicleInputCard: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray6)))
     }
 }
-
+/*
 struct CarFormView: View {
     @State private var make: String = ""
     @State private var model: String = ""
@@ -170,10 +170,10 @@ struct CarFormView: View {
         .navigationTitle("Enter Car Info")
     }
 }
-
+*/
 @Observable
 final class LiveRecordingMonitor {
-    // Non-nil when ANOTHER device on this account is recording live
+    // Non-nil when another device on this account is recording live
     private(set) var activeTitle: String?
 
     @ObservationIgnored private var ref: DatabaseReference?
@@ -189,7 +189,7 @@ final class LiveRecordingMonitor {
                 self?.activeTitle = nil
                 return
             }
-            // Don't offer to watch a recording that this same phone is making
+            // Check to not offer to watch a recording that this same phone is broadcasting
             let thisDevice = UIDevice.current.identifierForVendor?.uuidString
             self?.activeTitle = (d["device"] as? String) == thisDevice
                 ? nil
@@ -203,7 +203,7 @@ final class LiveRecordingMonitor {
         handle = nil
     }
 }
-
+/*
 struct ResumeRecordingCard: View {
     var body: some View {
         HStack(spacing: 0) {
@@ -235,7 +235,7 @@ struct ResumeRecordingCard: View {
         .cornerRadius(12)
     }
 }
-
+*/
 struct LocationCard: View {
     @State private var locationManager = LocationManager()
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
@@ -337,6 +337,9 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
     }
 }
 
+// OLD
+
+/*
 struct VehicleSelectionRow: View {
     let vehicle: String
     @Binding var selectedVehicle: String
@@ -353,7 +356,7 @@ struct VehicleSelectionRow: View {
         }
     }
 }
-
+*/
 
 #Preview {
     LiveDataView()

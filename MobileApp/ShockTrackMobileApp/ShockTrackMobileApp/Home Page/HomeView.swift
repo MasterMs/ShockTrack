@@ -13,6 +13,7 @@ struct HomeView: View {
     @Binding var selectedTab: Int
     @Environment(AuthService.self) private var authService
     @State private var vm = CommunityPostsViewModel()
+    @StateObject private var recentDB = DatabaseViewModel()
 
     var body: some View {
         NavigationView {
@@ -33,24 +34,32 @@ struct HomeView: View {
                     }
                     
                     // Database Section
-                    SectionHeader(title: "Database")
+                    SectionHeader(title: "Recent Recordings")
                     VStack(spacing: 12) {
-                        Button {
-                            selectedTab = 3 // Database tab
-                        } label: {
-                            CardView(title: "240SX", subtitle: "Database", date: "Sat, Sept 26th, 2025", image: "240SX")
-                        }
-                        Button {
-                            selectedTab = 3 // Database tab
-                        } label: {
-                            CardView(title: "RX7", subtitle: "Database", date: "Mon, Sept 29th, 2025", image: "RX7")
+                        if recentDB.recordings.isEmpty {
+                            Text(recentDB.isLoading ? "Loading…" : "No recordings yet")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            ForEach(recentDB.recordings) { rec in
+                                Button {
+                                    selectedTab = 3 // Database tab
+                                } label: {
+                                    CardView(
+                                        title: "\(rec.vehicle_make) \(rec.vehicle_model)",
+                                        subtitle: rec.locationName ?? "Database",
+                                        date: dateText(rec.recordedAt),
+                                        image: "Graph"
+                                    )
+                                }
+                            }
                         }
                     }
                     
                     // Community Posts Section
                     SectionHeader(title: "New Community Posts")
-                    
-                    ForEach(vm.posts) { post in
+                    ForEach(vm.posts.prefix(3)) { post in
                         CommunityPostCard(post: post)
                     }
                 }
@@ -68,14 +77,26 @@ struct HomeView: View {
                 }
             }
         }
-        .onAppear { vm.start() }
-        .onDisappear { vm.stop() }
+        .onAppear {
+            // Gets Community Posts on Home screen load
+            vm.start()
+            // Gets Database entries on Home screen load
+            Task { await recentDB.load(limit: 3) }
+        }
+        .onDisappear {
+            // Stops loading community posts on clicking off home screen
+            vm.stop()
+        }
     }
     
     private var firstName: String? {
         guard let displayName = authService.currentUser?.displayName, !displayName.isEmpty else { return nil }
         let parts = displayName.split(separator: " ")
         return parts.first.map(String.init)
+    }
+    
+    private func dateText(_ date: Date?) -> String {
+        date?.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().year()) ?? ""
     }
 }
 

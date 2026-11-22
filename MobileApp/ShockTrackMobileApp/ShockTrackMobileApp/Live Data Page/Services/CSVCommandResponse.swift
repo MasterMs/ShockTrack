@@ -16,9 +16,11 @@ struct CSVCommandResponse: Decodable {
 }
 
 enum SensorServerClient {
-    // On a real phone, 127.0.0.1 is the phone itself. Use the server's LAN IP there.
+    // Local Host on the Laptop
     static let baseURL = URL(string: "http://127.0.0.1:8000")!
-
+    // Public IP 192.168.2.12
+    // static let baseURL = URL(string: "http://192.168.2.12:8000")!
+    
     static func startCSV() async -> CSVCommandResponse? { await send("startCSV") }
     static func stopCSV() async -> CSVCommandResponse? { await send("stopCSV") }
 
