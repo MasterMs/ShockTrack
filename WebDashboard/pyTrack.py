@@ -6,10 +6,13 @@ from core.parser import LineParser
 from core.serial_manager import SerialManager
 from core.ws_hub import WebSocketHub
 
+from core.joblibHelper import JoblibHelper
+
+from pathlib import Path
 
 # ----- CONFIG -----
-#PORT = "/dev/cu.usbserial-210" # For Mac
-PORT = "COM4"
+# PORT = "/dev/cu.usbserial-210" # For Mac
+PORT = "COM5"
 BAUD = 115200
 RETRY_SECONDS = 2
 LOG_DIR = "logs"
@@ -21,6 +24,12 @@ ws_hub = WebSocketHub()
 parser = LineParser()
 logger = CsvLogger(log_dir=LOG_DIR, header=HEADER)
 
+predictor = JoblibHelper(
+    Path(__file__).resolve().parent
+    / "models"
+    / "shocktrack_motion5.joblib"
+)
+
 serial_mgr = SerialManager(
     port=PORT,
     baud=BAUD,
@@ -28,6 +37,7 @@ serial_mgr = SerialManager(
     logger=logger,
     parser=parser,
     ws_hub=ws_hub,
+    predictor=predictor,
 )
 
 api = ShockTrackAPI(

@@ -41,15 +41,32 @@
             if (!lastData) ui.v.textContent = "(waiting for data)";
         }
 
-        function addSample(line) {
-            const parts = line.trim().split(",");
-            if (parts.length !== 6 || parts.some(s => !s.trim())) return false;
-            const values = parts.map(Number);
+        function addSample(text) {
+            let sample;
+
+            try {
+                sample = JSON.parse(text);
+            } catch {
+                return false;
+            }
+
+            const values = [
+                sample.acel_x, sample.acel_y, sample.acel_z,
+                sample.gyro_x, sample.gyro_y, sample.gyro_z
+            ];
+
             if (!values.every(Number.isFinite)) return false;
+
             charts.forEach((chart, i) => {
                 chart.data[next] = values[i];
                 chart.label.textContent = values[i].toFixed(2);
             });
+
+            const predictionLabel = document.getElementById("prediction");
+            if (predictionLabel) {
+                predictionLabel.textContent = sample.prediction ?? "Unavailable";
+            }
+
             next = (next + 1) % N;
             count = Math.min(count + 1, N);
             redraw();
