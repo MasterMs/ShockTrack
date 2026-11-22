@@ -17,11 +17,11 @@ final class DatabaseViewModel: ObservableObject {
 
     private let service = DatabaseService()
 
-    func load() async {
+    func load(limit: Int? = nil) async {
         isLoading = true
         defer { isLoading = false }
         do {
-            recordings = try await service.fetchRecordings()
+            recordings = try await service.fetchRecordings(limit: limit)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

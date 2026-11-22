@@ -26,10 +26,20 @@ struct DatabaseView: View {
                     if !vm.recordings.isEmpty {
                         LazyVStack(spacing: 12) {
                             ForEach(vm.recordings) { rec in
-                                RecordingRow(recording: rec)
+                                NavigationLink {
+                                    DatabaseDetailsView(recording: rec)
+                                } label: {
+                                    HStack {
+                                        RecordingRow(recording: rec)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .foregroundStyle(.secondary)
+                                    }
                                     .padding()
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray6)))
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     } else if vm.isLoading {

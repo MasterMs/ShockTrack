@@ -42,6 +42,8 @@ final class LiveUploader: NSObject, URLSessionWebSocketDelegate {
     @ObservationIgnored var onConnectionChange: ((Bool) -> Void)?
 
     private(set) var isConnected: Bool = false
+    
+    private static let sensorKeys = ["accel_x", "accel_y", "accel_z", "gyro_x", "gyro_y", "gyro_z"]
 
     init(socketURLString: String, basePath: String = "sensors/current") {
         self.socketURLString = socketURLString
@@ -106,25 +108,56 @@ final class LiveUploader: NSObject, URLSessionWebSocketDelegate {
     }
 
     private func handleText(_ text: String, uid: String) {
-        let parts = text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .split(separator: ",")
-            .compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard parts.count == 6 else {
-            print("[LiveUploader] Expected 6 values, got \(parts.count): \(text)")
-            return
+        let fields: [String: Any]
+        if trimmed.hasPrefix("{") {
+            guard let data = trimmed.data(using: .utf8),
+                  let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  let parsed = Self.payload(fromJSON: json) else {
+                print("[LiveUploader] Unrecognized JSON message: \(trimmed)")
+                return
+            }
+            fields = parsed
+        } else {
+            // Old format: "ax,ay,az,gx,gy,gz"
+            let parts = trimmed
+                .split(separator: ",")
+                .compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+            guard parts.count == 6 else {
+                print("[LiveUploader] Expected 6 values, got \(parts.count): \(text)")
+                return
+            }
+            var csv: [String: Any] = [:]
+            for (key, value) in zip(Self.sensorKeys, parts) { csv[key] = value }
+            fields = csv
         }
 
-        let payload: [String: Any] = [
-            "t": ServerValue.timestamp(),
-            "accel_x": parts[0], "accel_y": parts[1], "accel_z": parts[2],
-            "gyro_x": parts[3], "gyro_y": parts[4], "gyro_z": parts[5]
-        ]
+        var message = fields
+        message["t"] = ServerValue.timestamp()
         Database.database().reference(withPath: "\(basePath)/\(uid)")
-            .setValue(payload) { error, _ in
+            .setValue(message) { error, _ in
                 if let error { print("[LiveUploader] Failed to write live payload: \(error)") }
             }
+    }
+
+    private static func number(_ value: Any?) -> Double? {
+        if let n = value as? NSNumber { return n.doubleValue }
+        if let s = value as? String { return Double(s) }
+        return nil
+    }
+
+    // Pulls the six sensor values and the prediction out of the server's JSON. Returns nil if any sensor value is missing.
+    private static func payload(fromJSON json: [String: Any]) -> [String: Any]? {
+        var out: [String: Any] = [:]
+        for key in sensorKeys {
+            guard let value = number(json[key]) else { return nil }
+            out[key] = value
+        }
+        if let label = json["prediction"] as? String {
+            out["prediction"] = label     // null or missing just means no prediction yet
+        }
+        return out
     }
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
@@ -150,6 +183,8 @@ final class FirebaseSensorModel {
     private var ref: DatabaseReference?
     private var handle: DatabaseHandle?
     private let path: String
+    
+    var prediction: String?
 
     init(path: String = "sensors/current", maxCount: Int = 240) {
         self.path = path
@@ -183,6 +218,7 @@ final class FirebaseSensorModel {
                   let gz = d("gyro_z") else {
                 return
             }
+            prediction = dict["prediction"] as? String
             // Build and append a new sample
             let point = GraphPoint(index: index, x: ax, y: ay, z: az)
             samples.append(point)
@@ -768,49 +804,62 @@ private struct SettingsSheet: View {
 // MARK: - Components
 // View for graphing suspenion data
 struct GraphView: View {
-    var isPlaying: Bool = true
     @State private var model = FirebaseSensorModel(path: "sensors/current")
 
     var body: some View {
+        VStack(spacing: 8) {
+            PredictionBanner(prediction: model.prediction)
+            chart
+        }
+        .onAppear { model.start() }
+        .onDisappear { model.stop() }
+    }
+
+    private var chart: some View {
         let xMax = (model.samples.last?.index ?? 0)
         let window = max(60, min(240, model.samples.count))
         let xMin = max(0, xMax - window)
 
         return Chart {
             ForEach(model.samples) { point in
-                LineMark(
-                    x: .value("Index", point.index),
-                    y: .value("Acceleration", point.x)
-                )
-                .foregroundStyle(by: .value("Axis", "X"))
-
-                LineMark(
-                    x: .value("Index", point.index),
-                    y: .value("Acceleration", point.y)
-                )
-                .foregroundStyle(by: .value("Axis", "Y"))
-
-                LineMark(
-                    x: .value("Index", point.index),
-                    y: .value("Acceleration", point.z)
-                )
-                .foregroundStyle(by: .value("Axis", "Z"))
+                LineMark(x: .value("Index", point.index), y: .value("Acceleration", point.x))
+                    .foregroundStyle(by: .value("Axis", "X"))
+                LineMark(x: .value("Index", point.index), y: .value("Acceleration", point.y))
+                    .foregroundStyle(by: .value("Axis", "Y"))
+                LineMark(x: .value("Index", point.index), y: .value("Acceleration", point.z))
+                    .foregroundStyle(by: .value("Axis", "Z"))
             }
         }
         .chartXScale(domain: xMin...xMax)
         .chartYAxis { AxisMarks(position: .leading) }
         .chartYAxisLabel("Acceleration")
         .chartXAxisLabel("Sample")
-        .onAppear {
-            model.start()
-        }
-        .onDisappear { model.stop() }
         .background(Color.white.opacity(0.02))
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.white.opacity(0.3), lineWidth: 1)
         )
+    }
+}
+
+struct PredictionBanner: View {
+    let prediction: String?
+
+    var body: some View {
+        HStack {
+            Text("Prediction")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(prediction ?? "—")
+                .font(.headline)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .animation(.default, value: prediction)
     }
 }
 

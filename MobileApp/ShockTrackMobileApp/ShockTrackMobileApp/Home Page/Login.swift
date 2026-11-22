@@ -24,7 +24,7 @@ struct ContentView: View {
     // Initialize AuthService with multiple providers
     authService = AuthService(configuration: configuration)
       .withEmailSignIn()
-      //.withAppleSignIn() // Apple sign in cost money
+      //.withAppleSignIn() // Apple sign in costs money
       .withGoogleSignIn()
   }
 

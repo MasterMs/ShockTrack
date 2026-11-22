@@ -20,12 +20,17 @@ struct CommunityView: View {
             ZStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        Text("Community")
+                        Text("ShockTrack Community")
                             .font(.largeTitle)
                             .bold()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.top, 10)
                         
+                        Text("My Posts")
+                            .font(.headline)
+                        
+                        Text("Recent Posts")
+                            .font(.headline)
                         ForEach(vm.posts) { post in
                             CommunityPostCard(post: post)
                         }

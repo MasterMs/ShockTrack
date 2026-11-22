@@ -19,20 +19,20 @@ struct DatabaseService {
         return db.collection("Recordings").document(uid).collection("recording_details")
     }
 
-    func fetchRecordings() async throws -> [RecordingDetails] {
-        let uid = Auth.auth().currentUser?.uid ?? "nil"
-        let snapshot = try await collection().order(by: "recordedAt", descending: true).getDocuments()
-        //print("[DB] signed-in uid: \(uid), documents found: \(snapshot.documents.count)")
+    func fetchRecordings(limit: Int? = nil) async throws -> [RecordingDetails] {
+        var query: Query = try collection().order(by: "recordedAt", descending: true)
+        if let limit { query = query.limit(to: limit) }
+        let snapshot = try await query.getDocuments()
 
         var results: [RecordingDetails] = []
         for doc in snapshot.documents {
             do {
                 results.append(try doc.data(as: RecordingDetails.self))
             } catch {
-                //print("[DB] decode failed for \(doc.documentID): \(error)")
+                print("[DB] decode failed for \(doc.documentID): \(error)")
             }
         }
-        return results.sorted { ($0.recordedAt ?? .distantPast) > ($1.recordedAt ?? .distantPast) }
+        return results
     }
     
     func delete(_ recording: RecordingDetails) async throws {
