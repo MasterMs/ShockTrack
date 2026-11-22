@@ -12,8 +12,6 @@
     box-sizing: border-box;
 }
 
-
-
 body {
     margin: 0;
     min-height: 100vh;
@@ -26,16 +24,11 @@ body {
     background-color: #0c1015;
 
     background-image:
-        /* Subtle overhead lighting */
         radial-gradient(ellipse at 50% 0%,
             rgba(80, 95, 110, 0.12),
             transparent 65%),
-
-        /* Horizontal engineering grid */
         linear-gradient(rgba(255, 255, 255, 0.025) 1px,
             transparent 1px),
-
-        /* Vertical engineering grid */
         linear-gradient(90deg,
             rgba(255, 255, 255, 0.025) 1px,
             transparent 1px);
@@ -51,7 +44,6 @@ body {
     place-items: center;
     padding: 22px;
 }
-
 
 .wrap {
     width: min(1100px, 100%);
@@ -80,6 +72,7 @@ body {
 }
 
 .dot {
+    flex-shrink: 0;
     width: 12px;
     height: 12px;
     border-radius: 999px;
@@ -129,13 +122,18 @@ body {
 button {
     appearance: none;
     border: 1px solid var(--border);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06));
+    background: linear-gradient(180deg,
+            rgba(255, 255, 255, 0.14),
+            rgba(255, 255, 255, 0.06));
     color: var(--text);
     padding: 10px 12px;
     border-radius: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.06s ease, border-color 0.2s ease, opacity 0.2s ease;
+    transition:
+        transform 0.06s ease,
+        border-color 0.2s ease,
+        opacity 0.2s ease;
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
 }
 
@@ -170,12 +168,13 @@ button:disabled {
 
 @media (min-width: 980px) {
     .grid {
-        grid-template-columns: 1.9fr 1fr;
-        align-items: start;
+        grid-template-columns: 1fr;
+
     }
 }
 
 .card {
+    min-width: 0;
     padding: 16px;
     background: var(--panel);
     border: 1px solid var(--border);
@@ -190,12 +189,55 @@ button:disabled {
     justify-content: space-between;
     align-items: baseline;
     gap: 10px;
+    flex-wrap: wrap;
     margin-bottom: 10px;
 }
 
 .hint {
     font-size: 12px;
     color: var(--muted);
+}
+
+.cardTitle {
+    font-weight: 700;
+}
+
+.prediction {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-left: 4px solid #ffd166;
+    border-radius: 14px;
+    background: rgba(255, 209, 102, 0.05);
+}
+
+.prediction[data-state="live"] {
+    border-left-color: #33d17a;
+    background: rgba(51, 209, 122, 0.06);
+}
+
+.prediction[data-state="stale"] {
+    border-left-color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.05);
+}
+
+.predictionValue {
+    font-size: clamp(24px, 4vw, 36px);
+    line-height: 1.2;
+    font-weight: 700;
+    text-transform: capitalize;
+    overflow-wrap: anywhere;
+}
+
+.rawMessage {
+    margin-bottom: 12px;
+}
+
+.kv .v.notes {
+    font-family: inherit;
+    line-height: 1.5;
 }
 
 .kv {
@@ -216,7 +258,24 @@ button:disabled {
     font-size: 13px;
     color: var(--text);
     word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family:
+        ui-monospace, SFMono-Regular, Menlo, Monaco,
+        Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+#connectionsTitle {
+    margin: 0 0 4px;
+    font-size: 1rem;
+}
+
+.connectionsList {
+    display: grid;
+    gap: 8px;
+    max-height: 20rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
 }
 
 .mini {
@@ -224,20 +283,15 @@ button:disabled {
     gap: 10px;
 }
 
-/* Charts */
 .charts {
     display: grid;
     gap: 12px;
     grid-template-columns: 1fr;
 }
 
-@media (min-width: 980px) {
-    .charts {
-        grid-template-columns: 1fr 1fr;
-    }
-}
 
 .chart {
+    min-width: 0;
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.10);
     background: rgba(0, 0, 0, 0.18);
@@ -254,7 +308,9 @@ button:disabled {
 }
 
 .chip {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family:
+        ui-monospace, SFMono-Regular, Menlo, Monaco,
+        Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 12px;
     color: var(--text);
     padding: 4px 8px;
@@ -266,8 +322,6 @@ button:disabled {
 canvas {
     width: 100%;
     height: clamp(110px, 18vw, 160px);
-
-    /* resizable: grows/shrinks with screen */
     display: block;
     border-radius: 12px;
     background: rgba(0, 0, 0, 0.22);
@@ -279,4 +333,26 @@ canvas {
     color: rgba(255, 255, 255, 0.55);
     font-size: 12px;
     padding: 6px 0 0;
+}
+
+@media (min-width: 980px) {
+    .charts {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+
+@media (max-width: 600px) {
+    body {
+        padding: 12px;
+    }
+
+    .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .controls {
+        justify-content: flex-start;
+    }
 }
