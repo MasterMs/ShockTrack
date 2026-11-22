@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="/static/favicon.png" type="image/svg+xml" />
+    <link rel="icon" href="data:," />
     <title>ShockTrack Live</title>
     <link rel="stylesheet" href="/static/style.css" />
     <script src="/static/main.js" defer></script>
@@ -17,7 +17,7 @@
                 <div id="dot" class="dot warn"></div>
                 <div class="title">
                     <strong>ShockTrack Live</strong>
-                    <span id="sub">WebSocket + Serial status</span>
+                    <span>Live sensor data + driving prediction</span>
                 </div>
             </div>
 
@@ -31,14 +31,21 @@
             <div class="card">
                 <div class="labelRow">
                     <div>
-                        <div style="font-weight:700;">Live MPU</div>
-                        <div class="hint">Raw line + 6 live charts (rolling window)</div>
+                        <div class="cardTitle">Live MPU</div>
+                        <div class="hint">6 sensor axes · latest 240 samples</div>
                     </div>
                     <div class="hint" id="lastTs">last: —</div>
                 </div>
 
-                <div class="kv" style="margin-bottom:12px;">
-                    <div class="k">Raw WebSocket line</div>
+                <section id="predictionCard" class="prediction" data-state="waiting" aria-label="Driving prediction">
+                    <div class="hint">Driving prediction</div>
+                    <div id="prediction" class="predictionValue" role="status" aria-live="polite" aria-atomic="true">
+                        Waiting for data</div>
+                    <div id="predictionNote" class="hint">The prediction appears when sensor data is available.</div>
+                </section>
+
+                <div class="kv rawMessage">
+                    <div class="k">Latest WebSocket message</div>
                     <div class="v" id="v">(waiting for data)</div>
                 </div>
 
@@ -49,23 +56,23 @@
                     </div>
                     <div class="chart">
                         <div class="chartHead"><span>acel_y</span><span class="chip" id="val_ay">—</span></div>
-                        <canvas id="c_ay" height="120"></canvas>
+                        <canvas id="c_ay"></canvas>
                     </div>
                     <div class="chart">
                         <div class="chartHead"><span>acel_z</span><span class="chip" id="val_az">—</span></div>
-                        <canvas id="c_az" height="120"></canvas>
+                        <canvas id="c_az"></canvas>
                     </div>
                     <div class="chart">
                         <div class="chartHead"><span>gyro_x</span><span class="chip" id="val_gx">—</span></div>
-                        <canvas id="c_gx" height="120"></canvas>
+                        <canvas id="c_gx"></canvas>
                     </div>
                     <div class="chart">
                         <div class="chartHead"><span>gyro_y</span><span class="chip" id="val_gy">—</span></div>
-                        <canvas id="c_gy" height="120"></canvas>
+                        <canvas id="c_gy"></canvas>
                     </div>
                     <div class="chart">
                         <div class="chartHead"><span>gyro_z</span><span class="chip" id="val_gz">—</span></div>
-                        <canvas id="c_gz" height="120"></canvas>
+                        <canvas id="c_gz"></canvas>
                     </div>
                 </div>
             </div>
@@ -90,17 +97,29 @@
 
                 <div class="kv">
                     <div class="k">Notes</div>
-                    <div class="v" style="font-family:inherit;">
-                        Use a real IP/hostname (not <code>0.0.0.0</code>). If you serve this over HTTPS, switch the WS
-                        URL to <code>wss://</code>.
+                    <div class="v notes">
+                        Charts show the latest valid sensor samples. A prediction may be unavailable while the model
+                        collects data.
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="footer">ShockTrack — live sensor telemetry</div>
-    </div>
+        <section class="card" aria-labelledby="connectionsTitle">
+            <div class="labelRow">
+                <div>
+                    <h2 id="connectionsTitle" class="cardTitle">WebSocket Connections</h2>
+                    <div id="connectionsStatus" class="hint" role="status">
+                        Select Refresh to load connections.
+                    </div>
+                </div>
+                <button id="refreshConnections" type="button">Refresh</button>
+            </div>
+            <ul id="connectionsList" class="connectionsList"></ul>
+        </section>
 
+        <div class="footer">ShockTrack — live sensor telemetry + driving predictions</div>
+    </div>
 </body>
 
 </html>
