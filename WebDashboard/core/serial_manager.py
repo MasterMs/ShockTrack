@@ -123,9 +123,7 @@ class SerialManager:
 
                 try:
                     raw_bytes = await asyncio.to_thread(connection.readline)
-                    raw = raw_bytes.decode(
-                        "utf-8", errors="ignore"
-                    ).strip()
+                    raw = raw_bytes.decode("utf-8", errors="ignore").strip()
 
                 except asyncio.CancelledError:
                     raise
@@ -140,37 +138,38 @@ class SerialManager:
                     continue
 
                 parsed = self.parser.parse(raw)
+                prediction = None
+                sample = None
 
-                # Continue recording the original sensor data.
+                if parsed.is_valid and all(
+                    math.isfinite(v) for v in parsed.values
+                ):
+                    sample = dict(zip(self.predictor.FEATURES, parsed.values))
+
+                    try:
+                        result = await asyncio.to_thread(
+                            self.predictor.predict,
+                            sample,
+                        )
+                        prediction = result["prediction"]
+
+                    except Exception:
+                        log.exception("Prediction failed")
+                        self.predictor.reset()
+                else:
+                    self.predictor.reset()
+
+                # Record sensor data with its corresponding prediction.
                 async with self._csv_lock:
                     if self.logger.is_open():
-                        self.logger.write(parsed.to_csv_row())
+                        self.logger.write([
+                            *parsed.to_csv_row(),
+                            prediction,
+                        ])
 
-                # Only valid sensor rows enter the prediction window.
-                if (
-                    not parsed.is_valid
-                    or not all(math.isfinite(v) for v in parsed.values)
-                ):
-                    self.predictor.reset()
+                if sample is None:
                     continue
 
-                sample = dict(
-                    zip(self.predictor.FEATURES, parsed.values)
-                )
-
-                try:
-                    result = await asyncio.to_thread(
-                        self.predictor.predict,
-                        sample,
-                    )
-                    prediction = result["prediction"]
-
-                except Exception:
-                    log.exception("Prediction failed")
-                    self.predictor.reset()
-                    prediction = None
-
-                # Broadcast sensor values and prediction together.
                 payload = {
                     "timestamp": parsed.timestamp,
                     **sample,
