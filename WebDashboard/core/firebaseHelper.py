@@ -1,5 +1,6 @@
 
 from pathlib import Path
+from datetime import timedelta
 
 import firebase_admin
 from firebase_admin import credentials, storage, firestore
@@ -53,6 +54,34 @@ class FirebaseHelper:
             "storagePath": storage_path,
             "fileName": file.name
         }
+
+    def get_user_logs(self, user_id: str) -> list[dict]:
+        """List a user's CSV logs with temporary download URLs."""
+
+        if not user_id or user_id in (".", "..") or "/" in user_id or "\\" in user_id:
+            raise ValueError("Invalid Firebase user ID")
+
+        prefix = f"users/{user_id}/sessions/"
+        logs = []
+
+        for blob in self.bucket.list_blobs(prefix=prefix):
+            if not blob.name.lower().endswith(".csv"):
+                continue
+
+            session_id = blob.name.rsplit("/", 1)[-1]
+
+            logs.append({
+                "sessionId": session_id,
+                "storagePath": blob.name,
+                "fileName": session_id.removeprefix(f"{user_id}_"),
+                "downloadUrl": blob.generate_signed_url(
+                    version="v4",
+                    expiration=timedelta(minutes=15),
+                    method="GET"
+                )
+            })
+
+        return logs
 
 
 if __name__ == "__main__":

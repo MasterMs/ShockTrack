@@ -173,6 +173,19 @@ class ShockTrackAPI:
                 "message": "CSV recording stopped and uploaded",
             })
 
+        @self.app.get("/logs")
+        async def get_logs():
+            logs = await asyncio.to_thread(
+                self.firebase_helper.get_user_logs,
+                user_id=self.firebase_user,
+            )
+
+            return JSONResponse({
+                "user_id": self.firebase_user,
+                "count": len(logs),
+                "logs": logs,
+            })
+
         @self.app.get("/")
         async def index():
             return FileResponse(self.static_dir / "index.html")
