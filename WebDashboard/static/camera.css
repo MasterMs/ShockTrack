@@ -1,0 +1,245 @@
+.camera-page.wrap {
+    gap: 16px;
+}
+
+.camera-page .camera-header,
+.camera-page .camera-preview-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.camera-page .camera-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 14px;
+}
+
+.camera-page h1,
+.camera-page h2 {
+    margin: 0;
+}
+
+.camera-page h1 {
+    font-size: 26px;
+}
+
+.camera-page h2 {
+    font-size: 16px;
+}
+
+.camera-page .camera-header a,
+.camera-page .camera-preview-heading > span {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.camera-page .camera-preview-heading {
+    margin-bottom: 8px;
+}
+
+.camera-page .camera-preview-heading .dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 4px;
+    box-shadow: none;
+}
+
+.camera-page button {
+    background: #19222c;
+    border-radius: 6px;
+    box-shadow: none;
+}
+
+.camera-page .camera-notice:empty {
+    margin: 0;
+}
+
+.camera-page .camera-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px
+}
+
+.camera-page label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--muted)
+}
+
+.camera-page .camera-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap
+}
+
+.camera-page input,
+.camera-page select {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    min-height: 42px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #111820;
+    color: var(--text);
+    font: inherit;
+    font-size: 14px
+}
+
+.camera-page select option {
+    background: #111820
+}
+
+.camera-page .camera-row button {
+    white-space: nowrap
+}
+
+.camera-page .camera-status {
+    min-height: 18px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    overflow-wrap: anywhere
+}
+
+.camera-page .camera-stage {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #0c141e
+}
+
+.camera-page #overlay {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16/9;
+    border: 0;
+    border-radius: 0;
+    background: #0c141e
+}
+
+.camera-page .camera-stage:fullscreen {
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 0;
+    background: #000
+}
+
+.camera-page .camera-stage:fullscreen #overlay {
+    width: 100%;
+    height: 100%;
+    object-fit: contain
+}
+
+.camera-page #video {
+    position: fixed;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none
+}
+
+.camera-page .camera-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px
+}
+
+.camera-page .camera-toolbar p {
+    margin: 0;
+    max-width: 440px;
+    line-height: 1.5
+}
+
+.camera-page #record[aria-pressed="true"] {
+    border-color: #ff6b6b;
+    color: #ffaaaa;
+    background: rgba(255, 107, 107, .10)
+}
+
+.camera-page .camera-notice {
+    margin-top: 12px;
+    color: #ffd166;
+    font-size: 13px
+}
+
+.camera-page .camera-help {
+    line-height: 1.6;
+    font-size: 13px;
+    color: var(--muted)
+}
+
+.camera-page .camera-help summary {
+    cursor: pointer;
+    color: var(--text)
+}
+
+.camera-page .camera-help p {
+    margin: 10px 0 0
+}
+
+.camera-page code {
+    color: var(--text);
+    overflow-wrap: anywhere
+}
+
+.camera-page pre {
+    margin: 10px 0 0;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, .18);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--text)
+}
+
+.camera-page .download {
+    display: block;
+    margin-top: 10px;
+    color: #33d17a;
+    font-size: 13px
+}
+
+.camera-page :focus-visible {
+    outline: 2px solid #33d17a;
+    outline-offset: 3px
+}
+
+.camera-page #diagnostics[hidden] {
+    display: none
+}
+
+@media(max-width:760px) {
+    .camera-page .camera-fields {
+        grid-template-columns: 1fr;
+        gap: 16px
+    }
+
+    .camera-page #overlay {
+        aspect-ratio: 3/4
+    }
+
+    .camera-page .camera-toolbar {
+        align-items: flex-start
+    }
+}
+
+@media(max-width:400px) {
+
+    .camera-page .camera-row input,
+    .camera-page .camera-row select {
+        flex-basis: 100%
+    }
+}

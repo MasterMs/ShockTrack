@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>ShockTrack Camera</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/camera.css">
+</head>
+
+<body>
+  <main class="wrap camera-page">
+    <header class="camera-header">
+      <h1>Camera</h1>
+      <a href="/">Back to dashboard</a>
+    </header>
+
+    <section aria-label="Camera and telemetry controls">
+      <div class="camera-fields">
+        <div>
+          <label for="url">Telemetry server</label>
+          <div class="camera-row">
+            <input id="url" type="url" spellcheck="false" placeholder="ws://localhost:8000/ws">
+            <button id="connect" type="button">Connect</button>
+          </div>
+          <div id="wsStatus" class="camera-status" role="status">Disconnected</div>
+        </div>
+        <div>
+          <label for="cameras">Camera</label>
+          <div class="camera-row">
+            <select id="cameras">
+              <option value="">Default camera</option>
+            </select>
+            <button id="camera" type="button">Start camera</button>
+          </div>
+          <div id="camStatus" class="camera-status" role="status">Camera off</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="camera-preview" aria-labelledby="cameraTitle">
+      <div class="camera-preview-heading">
+        <h2 id="cameraTitle">Preview</h2>
+        <span><span id="cameraDot" class="dot bad" aria-hidden="true"></span> Telemetry</span>
+      </div>
+      <div id="stage" class="camera-stage">
+        <canvas id="overlay" width="1280" height="720" role="img"
+          aria-label="Camera with live ShockTrack telemetry overlay"></canvas>
+      </div>
+      <video id="video" autoplay muted playsinline aria-hidden="true"></video>
+      <div class="camera-toolbar">
+        <div class="camera-row">
+          <button id="record" type="button" disabled aria-pressed="false">Record</button>
+          <button id="rotate" type="button" title="Rotate camera clockwise">Rotate (0°)</button>
+          <button id="fullscreen" type="button">Fullscreen</button>
+        </div>
+        <p id="recordStatus" class="hint">Records video and telemetry without audio.</p>
+      </div>
+      <div id="notice" class="camera-notice" role="status"></div>
+      <div id="downloads" aria-live="polite"></div>
+      <details id="diagnostics" class="camera-help" hidden>
+        <summary>Last rejected WebSocket message</summary>
+        <p id="parseError"></p>
+        <pre id="lastMessage"></pre>
+      </details>
+    </section>
+
+    <details class="camera-help camera-support">
+      <summary>Connection and camera help</summary>
+      <p>Connect to the existing ShockTrack <code>/ws</code> endpoint, then start the camera. The address defaults to
+        the server hosting this page. The camera selector switches between available cameras; Rotate changes the camera
+        image in 90° steps.</p>
+      <p>Camera access requires HTTPS or <code>http://localhost</code>. Opening the dashboard through an HTTP LAN
+        address can display sensor data while camera access remains unavailable. An HTTPS page requires a
+        <code>wss://</code> connection.
+      </p>
+      <p>Recording saves a video download in this browser. Keep this tab visible while recording. CSV recording and
+        cloud uploads are controlled separately.</p>
+      <p>Sensor values use the stream's native units. Predictions describe the model's current window; they are not
+        ground-truth labels. The preview marks samples stale after 1.5 seconds without fresh data.</p>
+    </details>
+  </main>
+  <script src="/static/camera.js" type="module"></script>
+</body>
+
+</html>
