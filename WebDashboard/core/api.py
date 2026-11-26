@@ -171,6 +171,7 @@ class ShockTrackAPI:
                 "filepath": firebase_response.get("storagePath"),
                 "session_id": firebase_response.get("sessionId"),
                 "message": "CSV recording stopped and uploaded",
+                "firebase_response": firebase_response,
             })
 
         @self.app.get("/logs")
@@ -185,6 +186,10 @@ class ShockTrackAPI:
                 "count": len(logs),
                 "logs": logs,
             })
+
+        @self.app.get("/camera")
+        async def camera():
+            return FileResponse(self.static_dir / "camera.html")
 
         @self.app.get("/")
         async def index():

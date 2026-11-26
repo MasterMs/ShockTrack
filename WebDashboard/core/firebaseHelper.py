@@ -3,7 +3,7 @@ from pathlib import Path
 from datetime import timedelta
 
 import firebase_admin
-from firebase_admin import credentials, storage, firestore
+from firebase_admin import credentials, storage, firestore, db
 
 
 class FirebaseHelper:
@@ -49,10 +49,17 @@ class FirebaseHelper:
             if_generation_match=0
         )
 
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=15),
+            method="GET"
+        )
+
         return {
             "sessionId": session_id,
             "storagePath": storage_path,
-            "fileName": file.name
+            "fileName": file.name,
+            "downloadUrl": url
         }
 
     def get_user_logs(self, user_id: str) -> list[dict]:
